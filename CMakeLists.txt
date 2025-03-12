@@ -8,8 +8,13 @@ set(OpenCV_DIR "${CMAKE_SOURCE_DIR}/src/opencv/opencv-4.11.0/build")
 find_package(OpenCV REQUIRED)
 
 # Ajouter les fichiers sources
-add_executable(projet src/main.cpp)
-
+add_executable(projet 
+    src/main.cpp
+    src/ImageUtils.cpp  # Contains stringduplicate function
+    src/SLIC.cpp   # Contains SLIC function
+    src/Superpixel.cpp # Contains PSNR function
+    # Add any other source files here
+)
 # Inclure les headers d'OpenCV
 include_directories(${OpenCV_INCLUDE_DIRS})
 
