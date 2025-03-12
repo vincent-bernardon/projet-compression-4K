@@ -2,14 +2,13 @@
 # /!\ Ce script est à exécuter dans le dossier racine du projet /!\    sauf si vous avez modifié les chemins, ou rajouter des options
 # Il faut d'abord compiler OpenCV avec les options suivantes: (afin de garder que les modules nécessaires)
 
-check_and_install() {
-    dpkg -l | grep -qw "$1" || sudo apt-get install -y "$1"
-}
+# check_and_install() {
+#     dpkg -l | grep -qw "$1" || sudo apt-get install -y "$1"
+# }
 
-check_and_install "libgtk2.0-dev"
-check_and_install "pkg-config"
+# check_and_install "libgtk2.0-dev"
+# check_and_install "pkg-config"
 
-sudo apt install libgtk2.0-dev pkg-config
 cd src/opencv/opencv-4.11.0
 mkdir -p build
 cd build

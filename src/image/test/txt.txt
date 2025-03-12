@@ -1,0 +1,1 @@
+normalement pour les deux objets le psnr est le même et est de 35.7821 dB
