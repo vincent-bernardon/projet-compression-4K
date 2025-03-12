@@ -20,6 +20,46 @@ class Superpixel{
 
 };
 
+void transformeNomImage(char *cheminImage, const char *nouvelleExtension, const char *prefixe, const char *suffixe, char *resultat)
+{
+    // Extraire uniquement le nom du fichier de cheminImage
+    char *base = basename(cheminImage);
+
+    // Copier le chemin de cheminImage dans le résultat
+    strcpy(resultat, cheminImage);
+    char *lastSlash = strrchr(resultat, '/');
+    if (lastSlash != NULL)
+    {
+        *(lastSlash + 1) = '\0'; // Terminer la chaîne après le dernier '/'
+    }
+    else
+    {
+        resultat[0] = '\0'; // Si aucun '/' n'est trouvé, vider le résultat
+    }
+
+    // Ajouter le préfixe au résultat
+    strcat(resultat, prefixe);
+
+    // Ajouter le nom du fichier (sans extension) au résultat
+    char *point = strrchr(base, '.');
+    if (point != NULL)
+    {
+        *point = '\0'; // Terminer la chaîne à l'emplacement du point
+    }
+    strcat(resultat, base);
+
+    // Ajouter le suffixe au résultat
+    strcat(resultat, suffixe);
+
+    // Ajouter la nouvelle extension au résultat
+    strcat(resultat, ".");
+    if (nouvelleExtension == nullptr || strlen(nouvelleExtension) == 0) {
+        strcat(resultat, point + 1); // Utiliser l'extension de cheminImage
+    } else {
+        strcat(resultat, nouvelleExtension);
+    }
+}
+
 double PSNR(const cv::Mat& I1, const cv::Mat& I2) {
     double EQM = 0;
     int nH = I1.rows;
@@ -63,7 +103,6 @@ void SLIC_RECURSIVE(const cv::Mat & I1, std::vector<Superpixel> & superpixels, s
                     pixels[i * nW + j].first = distance;
                     pixels[i * nW + j].second = sp_idx;
                 }
-
             }
         }
     }
@@ -109,9 +148,18 @@ void SLIC_RECURSIVE(const cv::Mat & I1, std::vector<Superpixel> & superpixels, s
 }
  
 
-void SLIC(const cv::Mat& I1, char imgOutName[250], int K = 100, int m = 10) {
+void SLIC(char* imagePath , char* imgOutName, int K = 100, int m = 10) {
+    cv::Mat I1 = cv::imread(imagePath);
     int nH = I1.rows;
     int nW = I1.cols;
+
+    //vérifier si l'image est chargée correctement
+
+    if (I1.empty()) {
+        std::cerr << "Could not open or find the image : %d"<< imagePath << std::endl;
+        exit(1);
+    }
+    std::cout << "Image chargée avec succès" << std::endl;
 
     int S = round(sqrt(nW * nH / K));
     std::vector<Superpixel> superpixels; 
@@ -133,6 +181,8 @@ void SLIC(const cv::Mat& I1, char imgOutName[250], int K = 100, int m = 10) {
 
     SLIC_RECURSIVE(I1, superpixels, pixels, S, m, nH, nW);
 
+    std::cout << "SLIC terminé" << std::endl;
+
     // creation de l'image de sortie 
     cv::Mat I2 = I1.clone();
     for(int i = 0; i < nH; i++) {
@@ -141,6 +191,13 @@ void SLIC(const cv::Mat& I1, char imgOutName[250], int K = 100, int m = 10) {
             I2.at<cv::Vec3b>(i, j) = superpixels[sp_idx].rgb;
         }
     }
+    std::cout << "Image de sortie créée" << std::endl;
+    if(strlen(imgOutName) == 0){
+        char suffix[50];
+        sprintf(suffix, "_K%d_m%d", K, m);
+        transformeNomImage(imagePath, nullptr, "SLIC_", suffix, imgOutName);
+    }
+    std::cout << "Image de sortie enregistrée" << std::endl;
 
     cv::imwrite(imgOutName, I2);
 
@@ -150,51 +207,19 @@ void SLIC(const cv::Mat& I1, char imgOutName[250], int K = 100, int m = 10) {
 
 int main() {
     //lire une image
-    cv::Mat image = cv::imread("../src/image/test4k.png");
-    char modifiedImagePath[250] = "../src/image/test4k_SLIC.png";
-    //cv::Mat image2 = cv::imread("../src/image/test/RGB_Y_OIP.png");
+    char imagePath[250] = "../src/image/test4k.png";
+    char imageOut[250] = {0};
 
-    //vérifier si l'image est chargée correctement
-    if (image.empty()) {
-        std::cerr << "Could not open or find the image" << std::endl;
-        return -1;
-    }
-/*     if(image2.empty()) {
-        std::cerr << "Could not open or find the image2" << std::endl;
-        return -1;
-    } */
 
-    //redimensionner la fenêtre d'affichage
-    // int window_width = 480;  //largeur de la fenêtre (par exemple 1920px)
-    // int window_height = 480; //hauteur de la fenêtre (par exemple 1080px)
-    // cv::namedWindow("fenetre1", cv::WINDOW_NORMAL);  // Crée une fenêtre redimensionnable
-    // cv::resizeWindow("fenetre1", window_width, window_height);  // Redimensionne la fenêtre
-
-    //afficher l'image
-    //c'est avec "fenetre1" que l'on relie l'affichage de l'image a la fenetre aprametrée audessus
-    // cv::imshow("fenetre1", image);
-
-    //attendre une touche pour fermer la fenêtre
-    // cv::waitKey(0);
-
-    // //ecrire l'image dans un fichier
-    // cv::imwrite("../src/image/R_copy.png", image);
-
-    // test psnr
-    //démaré un timer : 
-/*     Timer timer;
-    std::cout << "PSNR: " << PSNR(image, image2) <<" dB"<< std::endl;
-    //stoper le timer 
-    timer.stop();
-    std::cout << "Time: " << timer.elapsed() << "s" << std::endl; */
 
     //test SLIC
     Timer timer;
-    SLIC(image, modifiedImagePath, 48000, 10); // 29.7 de PSNR avec ces paramètres sur l'image test4k.png
+    SLIC(imagePath, imageOut ,48000, 10); // 29.7 de PSNR avec ces paramètres sur l'image test4k.png
     timer.stop();
-    std::cout << "Time: " << timer.elapsed() << "s" << std::endl; 
-    cv::Mat modifiedImage = cv::imread(modifiedImagePath);
-    std::cout << "PSNR: " << PSNR(image, modifiedImage) <<" dB"<< std::endl;
+    std::cout << "imageOut: " << imageOut << std::endl;
+    // std::cout << "Time: " << timer.elapsed() << "s" << std::endl; 
+    // cv::Mat modifiedImage = cv::imread(imageOut);
+    // std::cout << "PSNR: " << PSNR(image, modifiedImage) <<" dB"<< std::endl;
 
     return 0;
 }
