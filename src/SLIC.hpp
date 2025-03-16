@@ -10,5 +10,6 @@
 
 void SLIC_RECURSIVE(const cv::Mat & I1, std::vector<Superpixel> & superpixels, std::vector<std::pair<float, int>> & pixels, int S, int m, int nH, int nW);
 void SLIC(char* imagePath , char* imgOutName, int K, int m);
+cv::Mat SLICWithoutSaving(char* imagePath , int K, int m);
 
 #endif

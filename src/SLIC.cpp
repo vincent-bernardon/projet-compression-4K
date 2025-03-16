@@ -126,3 +126,53 @@ void SLIC(char* imagePath , char* imgOutName, int K = 100, int m = 10) {
     cv::imwrite(imgOutName, I2);
 
 }
+
+cv::Mat SLICWithoutSaving(char* imagePath , int K = 100, int m = 10){
+    cv::Mat I1 = cv::imread(imagePath);
+    int nH = I1.rows;
+    int nW = I1.cols;
+
+    //vérifier si l'image est chargée correctement
+
+    if (I1.empty()) {
+        std::cerr << "Could not open or find the image : %d"<< imagePath << std::endl;
+        exit(1);
+    }
+    // std::cout << "Image chargée avec succès" << std::endl;
+
+    int S = round(sqrt(nW * nH / K));
+    std::vector<Superpixel> superpixels; 
+
+    int nS = S/2;
+
+    for(int i = nS; i < nH; i+=S) {
+        for(int j = nS; j < nW; j+=S) {
+            Superpixel sp;
+            sp.x = round(i);
+            sp.y = round(j);
+            sp.nbPixels = 0;
+            sp.rgb = I1.at<cv::Vec3b>(sp.x, sp.y);
+            superpixels.push_back(sp);
+        }
+    }
+    // std::cout << "Nb de superpixels créés : " <<superpixels.size() << std::endl;
+
+    // vecteur pour stocker la distance entre chaque pixel et le superpixel associé
+    std::vector<std::pair<float, int>> pixels(nH * nW, std::make_pair(std::numeric_limits<float>::infinity(), -1));
+
+    SLIC_RECURSIVE(I1, superpixels, pixels, S, m, nH, nW);
+
+    // std::cout << "SLIC terminé" << std::endl;
+
+    // creation de l'image de sortie 
+    cv::Mat I2 = I1.clone();
+    for(int i = 0; i < nH; i++) {
+        for(int j = 0; j < nW; j++) {
+            int sp_idx = pixels[i * nW + j].second;
+            I2.at<cv::Vec3b>(i, j) = superpixels[sp_idx].rgb;
+        }
+    }
+
+    return I2;
+    
+}
