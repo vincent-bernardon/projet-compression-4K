@@ -1,4 +1,7 @@
 #include "ImageUtils.hpp"
+#include "global.hpp"
+#include <dirent.h>
+
 
 char* stringduplicate(const char* source) {
     if (!source) return nullptr;
@@ -151,4 +154,71 @@ void traceCourbesPSNRCompacite(char *imagePath){
 
     std::cout << "Fin de l'affichage des PSNR en fonction de M" << std::endl;
 
+}
+
+void traceCourbesPSNRSuperpixelsAVG(std::vector<std::string> imagePaths){
+    std::vector<float> psnrValues;
+    std::vector<int> KValues;
+
+    std::cout << "Calcul des PSNR pour différentes valeurs de K..." << std::endl;
+    int totalSteps = ((400000 - KMIN) / 10000 + 1) * imagePaths.size();
+    int currentStep = 0;
+
+    for(int K = KMIN; K <= 400000; K += 10000){
+        float psnrSum = 0;
+        for (std::string imagePath : imagePaths) {
+            cv::Mat image = cv::imread(imagePath);
+            if(image.empty()) {
+                std::cerr << "Could not open or find the image" << std::endl;
+                return;
+            }
+            cv::Mat modifiedImage = SLICWithoutSaving(stringduplicate(imagePath.c_str()), K, 10);
+            psnrSum += PSNR(image, modifiedImage);
+
+            // Update progress
+            currentStep++;
+            int progress = (currentStep * 100) / totalSteps;
+            std::cout << "\rProgress: " << progress << "%";
+            std::cout.flush();
+        }
+        psnrValues.push_back(psnrSum / imagePaths.size());
+        KValues.push_back(K);
+    }
+
+    std::cout << std::endl << "Affichage des PSNR en fonction de K..." << std::endl;
+
+    // Affichage le graphe des PSNR en fonction de K en utilisant gnuplot
+    FILE *pipe = popen("gnuplot -persist", "w"); //permet d'ouvrir un pipe pour écrire dans gnuplot et donc pas généré un fichier de sortie
+    if (pipe) {
+        fprintf(pipe, "set title 'PSNR en fonction de K'\n");
+        fprintf(pipe, "set xlabel 'K'\n");
+        fprintf(pipe, "set ylabel 'PSNR (dB)'\n");
+        fprintf(pipe, "plot '-' with linespoints title 'Valeurs du PSNR'\n");
+        for (int i = 0; i < psnrValues.size(); i++) {
+            fprintf(pipe, "%d %f\n", KValues[i], psnrValues[i]);
+        }
+        fprintf(pipe, "e\n");
+        fflush(pipe);
+        pclose(pipe);
+    } else {
+        std::cerr << "Could not open gnuplot" << std::endl;
+    }
+
+    std::cout << "Fin de l'affichage des PSNR en fonction de K" << std::endl;
+}
+
+void getAllImagesInFolder(std::string folderPath, std::vector<std::string>& imagePaths){ // on ne dois prendre que les image donc des fichier qui finissent par .png ou .jpg sauf les image qui commence par "SLIC_"
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir(folderPath.c_str())) != NULL) { // ouvrir le dossier
+        while ((ent = readdir(dir)) != NULL) { // lire les fichiers du dossier
+            std::string fileName = ent->d_name;
+            if (fileName.length() > 4 && (fileName.substr(fileName.length() - 4) == ".png" || fileName.substr(fileName.length() - 4) == ".jpg") && fileName.substr(0, 5) != "SLIC_") { // si le fichier est une image et ne commence pas par "SLIC_"
+                imagePaths.push_back(folderPath + "/" + fileName);
+            }
+        }
+        closedir(dir);
+    } else {
+        std::cerr << "Could not open directory" << std::endl;
+    }
 }
