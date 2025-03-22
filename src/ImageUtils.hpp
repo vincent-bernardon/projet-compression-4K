@@ -11,6 +11,7 @@ void transformeNomImage(char *cheminImage, const char *nouvelleExtension, const 
 void traceCourbesPSNRSuperpixels(char *imagePath);
 void traceCourbesPSNRCompacite(char *imagePath);
 void traceCourbesPSNRSuperpixelsAVG(std::vector<std::string> imagePaths);
+void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> imagePaths);
 void getAllImagesInFolder(std::string folderPath, std::vector<std::string>& imagePaths);
 
 #endif

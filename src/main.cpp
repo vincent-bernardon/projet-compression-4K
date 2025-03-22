@@ -13,7 +13,7 @@ int main() {
 
     // char imageOut[250] = {0};
     // char imageOutThreaded[250] = {0};
-/* 
+ 
     //test SLIC
     std::cout<<">----------SLIC----------<"<<std::endl;
     // Timer timer;
@@ -35,17 +35,23 @@ int main() {
     // traceCourbesPSNRSuperpixels(imagePath);
     // traceCourbesPSNRCompacite(imagePath);
 
-    std::vector<std::string> imagePaths;
-    getAllImagesInFolder("../src/image", imagePaths);
+    // std::vector<std::string> imagePaths;
+    // getAllImagesInFolder("../src/image", imagePaths);
     //afficher les paths des images 
     // for (std::string imagePath : imagePaths) {
     //     std::cout << imagePath << std::endl;
     // }
 
     //tracer la courbe des PSNR en fonction de K moyen
-    traceCourbesPSNRSuperpixelsAVG(imagePaths);
+    // traceCourbesPSNRSuperpixelsAVG(imagePaths);
 
- */
+    //tracer la courbe des taux de compression en fonction de K moyen
+    // traceCourbesTauxSuperpixelsAVG(imagePaths);
+
+    // timer.stop();
+    // std::cout << "Time: " << timer.elapsed() << "s" << std::endl; 
+
+
 
     //char imagePath[250] = "../src/image/test/OIP.png";
     char imagePath[250] = "../src/image/sunrise-sunflowers.png";
