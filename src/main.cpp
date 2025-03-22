@@ -16,7 +16,7 @@ int main() {
  
     //test SLIC
     std::cout<<">----------SLIC----------<"<<std::endl;
-    // Timer timer;
+    Timer timer;
     //K c'est le nombre de superpixels
     //M c'est le compacité, autrement dis le poids de la distance spatiale par rapport à la distance de couleur
     // SLIC(stringduplicate(imagePath), imageOut, KMIN, 10); // 29.7 de PSNR avec ces paramètres sur l'image test4k.png
@@ -35,31 +35,35 @@ int main() {
     // traceCourbesPSNRSuperpixels(imagePath);
     // traceCourbesPSNRCompacite(imagePath);
 
-    // std::vector<std::string> imagePaths;
-    // getAllImagesInFolder("../src/image", imagePaths);
+    std::vector<std::string> imagePaths;
+    getAllImagesInFolder("../src/image", imagePaths);
+
     //afficher les paths des images 
     // for (std::string imagePath : imagePaths) {
     //     std::cout << imagePath << std::endl;
     // }
 
+    //généré les images pour faire les courbes moyenne de PSNR en fonction de K et de taux de compression en fonction de K
+    // genererImageSLIC(imagePaths);
+
     //tracer la courbe des PSNR en fonction de K moyen
     // traceCourbesPSNRSuperpixelsAVG(imagePaths);
 
     //tracer la courbe des taux de compression en fonction de K moyen
-    // traceCourbesTauxSuperpixelsAVG(imagePaths);
+    traceCourbesTauxSuperpixelsAVG(imagePaths);
 
-    // timer.stop();
-    // std::cout << "Time: " << timer.elapsed() << "s" << std::endl; 
+    timer.stop();
+    std::cout << "Time: " << timer.elapsed() << "s" << std::endl; 
 
 
 
-    //char imagePath[250] = "../src/image/test/OIP.png";
+/*     //char imagePath[250] = "../src/image/test/OIP.png";
     char imagePath[250] = "../src/image/sunrise-sunflowers.png";
 
     Timer timer;
     timer.reset();
     cv::Mat imageModified = SDGT(imagePath, 120000, 10, 75000);
-    std::cout << " temps pris pour créer le graph : " << timer.elapsed() << std::endl;
+    std::cout << " temps pris pour créer le graph : " << timer.elapsed() << std::endl; */
 
     // TEST DISTANCE LAB
 /* 

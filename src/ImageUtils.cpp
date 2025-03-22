@@ -164,8 +164,7 @@ void traceCourbesPSNRCompacite(char *imagePath){
 
 }
 
-/*Sans threads trop longs plus de 897 secondes*/
-/* void traceCourbesPSNRSuperpixelsAVG(std::vector<std::string> imagePaths){
+void traceCourbesPSNRSuperpixelsAVG(std::vector<std::string> &imagePaths){
     std::vector<float> psnrValues;
     std::vector<int> KValues;
 
@@ -181,7 +180,25 @@ void traceCourbesPSNRCompacite(char *imagePath){
                 std::cerr << "Could not open or find the image" << std::endl;
                 return;
             }
-            cv::Mat modifiedImage = SLICWithoutSaving(stringduplicate(imagePath.c_str()), K, 10);
+            //il faut charger l'image deja modifié par SLIC qui se trouve dans le dossier image/courbe
+            //on setrouve dans le dossie "../src/image" et on dois prendre l'image dans "../src/image/courbe" de plus le nom de l'iamge est SLIC_Knombre_nom.png 
+            //donc on doit ajouter le prefixe "SLIC_Knombre_" et changer de dossier pour le trouver biensur nom c'est le nom actuelle du fichier de imagePaths
+            
+            // juste le nom de l'image
+            std::string fileName = imagePath.substr(imagePath.find_last_of("/\\") + 1);
+            
+            std::string cheminImageSLIC = "../src/image/courbe/SLIC_K" + std::to_string(K) + "_" + fileName;
+
+            cheminImageSLIC.find(".png");
+            
+            cv::Mat modifiedImage = cv::imread(cheminImageSLIC);
+
+            //afficher le chemin de l'image
+            // std::cout << cheminImageSLIC<<" : "<< imagePath << std::endl;
+            if(modifiedImage.empty()) {
+                std::cerr << "ERROR: Could not open or find the processed image: " << cheminImageSLIC << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
             psnrSum += PSNR(image, modifiedImage);
 
             // Update progress
@@ -197,137 +214,6 @@ void traceCourbesPSNRCompacite(char *imagePath){
     std::cout << std::endl << "Affichage des PSNR en fonction de K..." << std::endl;
 
     // Affichage le graphe des PSNR en fonction de K en utilisant gnuplot
-    FILE *pipe = popen("gnuplot -persist", "w"); //permet d'ouvrir un pipe pour écrire dans gnuplot et donc pas généré un fichier de sortie
-    if (pipe) {
-        // Save to both screen and file
-        fprintf(pipe, "set terminal pngcairo size 800,600 enhanced font 'Arial,12'\n");
-        fprintf(pipe, "set output 'psnr_moyen_K.png'\n");
-        
-        // Improved title and labels
-        fprintf(pipe, "set title 'PSNR moyen en fonction de K' font 'Arial,14'\n");
-        fprintf(pipe, "set xlabel 'Nombre de superpixels (K)' font 'Arial,12'\n");
-        fprintf(pipe, "set ylabel 'PSNR moyen (dB)' font 'Arial,12'\n");
-        
-        // Add grid and improve styling
-        fprintf(pipe, "set grid\n");
-        fprintf(pipe, "set key top right\n");
-        fprintf(pipe, "set style line 1 lc rgb '#008000' lt 1 lw 2 pt 7 ps 1.5\n");
-        
-        // Plot with improved styling
-        fprintf(pipe, "plot '-' with linespoints ls 1 title 'Valeurs du PSNR'\n");
-        for (int i = 0; i < psnrValues.size(); i++) {
-            fprintf(pipe, "%d %f\n", KValues[i], psnrValues[i]);
-        }
-        fprintf(pipe, "e\n");
-        
-        // Create a second plot for interactive viewing
-        fprintf(pipe, "set terminal wxt\n");
-        fprintf(pipe, "set output\n");
-        fprintf(pipe, "replot\n");
-        
-        fflush(pipe);
-        pclose(pipe);
-    } else {
-        std::cerr << "Could not open gnuplot" << std::endl;
-    }
-
-    std::cout << "Fin de l'affichage des PSNR en fonction de K" << std::endl;
-} */
-
-void traceCourbesPSNRSuperpixelsAVG(std::vector<std::string> imagePaths) {
-    std::vector<float> psnrValues;
-    std::vector<int> KValues;
-    
-    std::cout << "Calcul des PSNR pour différentes valeurs de K..." << std::endl;
-    
-    // Calculate number of hardware threads, leave one for system
-    unsigned int num_threads = std::thread::hardware_concurrency();
-    if (num_threads == 0) num_threads = 4; // Fallback if detection fails
-    num_threads = std::max(1u, num_threads - 1);
-    
-    std::cout << "Using " << num_threads << " threads for processing" << std::endl;
-    
-    // This will hold our futures
-    std::vector<std::future<std::pair<int, float>>> futures; // futures c'est des sorte de tache qui s'execute en parallèle
-
-    for (int K = KMIN; K <= 400000; K += 10000) {
-        auto future = std::async(std::launch::async, [K, imagePaths]() {
-            float psnrSum = 0;
-            
-            for (const std::string& imagePath : imagePaths) {
-                cv::Mat image = cv::imread(imagePath);
-                if (image.empty()) {
-                    std::cerr << "ERROR: Could not open or find the image: " << imagePath << std::endl;
-                    std::exit(EXIT_FAILURE); // Exit immediately
-                }
-                
-                cv::Mat modifiedImage = SLICWithoutSaving(stringduplicate(imagePath.c_str()), K, 10);
-                psnrSum += PSNR(image, modifiedImage);
-            }
-            
-            float avgPsnr = psnrSum / imagePaths.size();
-            std::cout << "Completed K=" << K << " with PSNR=" << avgPsnr << std::endl;
-            
-            return std::make_pair(K, avgPsnr);
-        });
-        
-        futures.push_back(std::move(future));
-        
-        // If we've reached our thread limit, wait for one to complete
-        if (futures.size() >= num_threads) {
-            try {
-                // Wait for the first future to complete
-                futures.front().wait();
-                
-                // Store result and remove from futures
-                auto result = futures.front().get();
-                KValues.push_back(result.first);
-                psnrValues.push_back(result.second);
-                futures.erase(futures.begin());
-            }
-            catch (const std::exception& e) {
-                std::cerr << "Error in worker thread: " << e.what() << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-        }
-    }
-    
-    // Wait for remaining futures
-    for (auto& future : futures) {
-        try {
-            auto result = future.get();
-            KValues.push_back(result.first);
-            psnrValues.push_back(result.second);
-        }
-        catch (const std::exception& e) {
-            std::cerr << "Error in worker thread: " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-    }
-    
-    // Sort results by K values (they may complete out of order)
-    std::vector<std::pair<int, float>> results;
-    for (size_t i = 0; i < KValues.size(); i++) {
-        results.push_back(std::make_pair(KValues[i], psnrValues[i]));
-    }
-    
-    std::sort(results.begin(), results.end(), 
-        [](const std::pair<int, float>& a, const std::pair<int, float>& b) {
-            return a.first < b.first;
-        }
-    );
-    
-    // Clear and rebuild the sorted vectors
-    KValues.clear();
-    psnrValues.clear();
-    for (const auto& result : results) {
-        KValues.push_back(result.first);
-        psnrValues.push_back(result.second);
-    }
-    
-    // Rest of the code remains the same...
-    std::cout << std::endl << "Affichage des PSNR en fonction de K..." << std::endl;
-    
     FILE *pipe = popen("gnuplot -persist", "w");
     if (pipe) {
         // Save to both screen and file
@@ -365,8 +251,8 @@ void traceCourbesPSNRSuperpixelsAVG(std::vector<std::string> imagePaths) {
     }
 
     std::cout << "Fin de l'affichage des PSNR en fonction de K" << std::endl;
-
 }
+
 
 void getAllImagesInFolder(std::string folderPath, std::vector<std::string>& imagePaths){ // on ne dois prendre que les image donc des fichier qui finissent par .png ou .jpg sauf les image qui commence par "SLIC_"
     DIR *dir;
@@ -385,9 +271,7 @@ void getAllImagesInFolder(std::string folderPath, std::vector<std::string>& imag
 }
 
 //le calcule du taux se fait comme cela : taux = (taille du fichier initial)/(taille du fichier compressé)
-//le taux est en pourcentage
-/*Sans thread toujours trop long*/
-/* void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> imagePaths){
+void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> &imagePaths){
     std::vector<float> tauxValues;
     std::vector<int> KValues;
 
@@ -395,32 +279,28 @@ void getAllImagesInFolder(std::string folderPath, std::vector<std::string>& imag
     int totalSteps = ((400000 - KMIN) / 10000 + 1) * imagePaths.size();
     int currentStep = 0;
 
-    // tableau pour stocker les taille des fichier initaux 
-    std::vector<std::uintmax_t> tailleFichierInitials;
-    for (std::string imagePath : imagePaths) {
-        tailleFichierInitials.push_back(getFileSize(imagePath));
-    }
 
-    int indxTailleFichierInitials = 0;
 
 
     for(int K = KMIN; K <= 400000; K += 10000){
         float tauxSum = 0;
         for (std::string imagePath : imagePaths) {
-            if(indxTailleFichierInitials == tailleFichierInitials.size()) {
-                indxTailleFichierInitials = 0;
-            }
+            
+            // juste le nom de l'image
+            std::string fileName = imagePath.substr(imagePath.find_last_of("/\\") + 1);
+                
+            std::string cheminImageSLIC = "../src/image/courbe/SLIC_K" + std::to_string(K) + "_" + fileName;
 
-            cv::Mat image = cv::imread(imagePath);
-            if(image.empty()) {
-                std::cerr << "Could not open or find the image" << std::endl;
-                return;
-            }
-            char imageOut[250] = {0};
-            SLIC(stringduplicate(imagePath.c_str()), imageOut, K, 10);
-            // utiliser getFileSize pour obtenir la taille du fichier compressé
-            std::uintmax_t tailleFichierCompressé = getFileSize(imageOut);
-            tauxSum += (tailleFichierInitials[indxTailleFichierInitials]) / tailleFichierCompressé;
+            cheminImageSLIC.find(".png");
+
+            std::cout << cheminImageSLIC << " : " << imagePath << std::endl;
+
+            uintmax_t tailleFichierCompres = getFileSize(cheminImageSLIC);
+            uintmax_t tailleFichierInitials = getFileSize(imagePath);
+
+            std::cout << "Taille fichier initial: " << tailleFichierInitials << " Taille fichier compressé: " << tailleFichierCompres << std::endl;
+
+            tauxSum += (tailleFichierInitials) / tailleFichierCompres;
             
 
             // Update progress
@@ -428,7 +308,6 @@ void getAllImagesInFolder(std::string folderPath, std::vector<std::string>& imag
             int progress = (currentStep * 100) / totalSteps;
             std::cout << "\rProgress: " << progress << "%";
             std::cout.flush();
-            indxTailleFichierInitials++;
         }
         tauxValues.push_back(tauxSum / imagePaths.size());
         KValues.push_back(K);
@@ -438,157 +317,6 @@ void getAllImagesInFolder(std::string folderPath, std::vector<std::string>& imag
     std::cout << std::endl << "Affichage des taux de compression en fonction de K..." << std::endl;
 
     // Affichage le graphe des taux de compression en fonction de K en utilisant gnuplot
-    FILE *pipe = popen("gnuplot -persist", "w"); //permet d'ouvrir un pipe pour écrire dans gnuplot et donc pas généré un fichier de sortie
-    if (pipe) {
-        // Save to both screen and file
-        fprintf(pipe, "set terminal pngcairo size 800,600 enhanced font 'Arial,12'\n");
-        fprintf(pipe, "set output 'taux_compression_K.png'\n");
-        
-        // Improved title and labels
-        fprintf(pipe, "set title 'Taux de compression en fonction de K' font 'Arial,14'\n");
-        fprintf(pipe, "set xlabel 'Nombre de superpixels (K)' font 'Arial,12'\n");
-        fprintf(pipe, "set ylabel 'Taux moyen de compression (%%)' font 'Arial,12'\n");
-        
-        // Add grid and improve styling
-        fprintf(pipe, "set grid\n");
-        fprintf(pipe, "set key top right\n");
-        fprintf(pipe, "set style line 1 lc rgb '#0060ad' lt 1 lw 2 pt 7 ps 1.5\n");
-        
-        // Plot with improved styling
-        fprintf(pipe, "plot '-' with linespoints ls 1 title 'Valeurs du taux de compression'\n");
-        for (int i = 0; i < tauxValues.size(); i++) {
-            fprintf(pipe, "%d %f\n", KValues[i], tauxValues[i]);
-        }
-        fprintf(pipe, "e\n");
-        
-        // Create a second plot for interactive viewing
-        fprintf(pipe, "set terminal wxt\n");
-        fprintf(pipe, "set output\n");
-        fprintf(pipe, "replot\n");
-        
-        fflush(pipe);
-        pclose(pipe);
-    } else {
-        std::cerr << "Could not open gnuplot" << std::endl;
-    }
-
-    std::cout << "Fin de l'affichage des taux de compression en fonction de K" << std::endl;
-
-} */
-
-void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> imagePaths) {
-    std::vector<float> tauxValues;
-    std::vector<int> KValues;
-    
-    std::cout << "Calcul des taux de compression pour différentes valeurs de K..." << std::endl;
-    
-    // Get initial file sizes (done once outside of threads)
-    std::vector<std::uintmax_t> tailleFichierInitials;
-    for (const std::string& imagePath : imagePaths) {
-        tailleFichierInitials.push_back(getFileSize(imagePath));
-    }
-    
-    // Calculate number of hardware threads, leave one for system
-    unsigned int num_threads = std::thread::hardware_concurrency();
-    if (num_threads == 0) num_threads = 4; // Fallback if detection fails
-    num_threads = std::max(1u, num_threads - 1);
-    
-    std::cout << "Using " << num_threads << " threads for processing" << std::endl;
-    
-    // This will hold our futures
-    std::vector<std::future<std::pair<int, float>>> futures;
-    
-    // Process K values
-    for (int K = KMIN; K <= 400000; K += 10000) {
-        // Create a task for each K value
-        auto future = std::async(std::launch::async, [K, imagePaths, tailleFichierInitials]() {
-            float tauxSum = 0;
-            
-            for (size_t i = 0; i < imagePaths.size(); i++) {
-                const std::string& imagePath = imagePaths[i];
-                
-                cv::Mat image = cv::imread(imagePath);
-                if (image.empty()) {
-                    std::cerr << "ERROR: Could not open or find the image: " << imagePath << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-                
-                char imageOut[250] = {0};
-                SLIC(stringduplicate(imagePath.c_str()), imageOut, K, 10);
-                
-                // Get size of compressed file
-                std::uintmax_t tailleFichierCompresse = getFileSize(imageOut);
-                
-                // Calculate ratio: original/compressed
-                tauxSum += static_cast<float>(tailleFichierInitials[i]) / tailleFichierCompresse;
-
-                //supresion du fichier créé commencent par "SLIC_"
-                remove(imageOut);
-            }
-            
-            float avgTaux = tauxSum / imagePaths.size();
-            std::cout << "Completed K=" << K << " with compression ratio=" << avgTaux << std::endl;
-            
-            return std::make_pair(K, avgTaux);
-        });
-        
-        futures.push_back(std::move(future));
-        
-        // If we've reached our thread limit, wait for one to complete
-        if (futures.size() >= num_threads) {
-            try {
-                // Wait for the first future to complete
-                futures.front().wait();
-                
-                // Store result and remove from futures
-                auto result = futures.front().get();
-                KValues.push_back(result.first);
-                tauxValues.push_back(result.second);
-                futures.erase(futures.begin());
-            }
-            catch (const std::exception& e) {
-                std::cerr << "Error in worker thread: " << e.what() << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-        }
-    }
-    
-    // Wait for remaining futures
-    for (auto& future : futures) {
-        try {
-            auto result = future.get();
-            KValues.push_back(result.first);
-            tauxValues.push_back(result.second);
-        }
-        catch (const std::exception& e) {
-            std::cerr << "Error in worker thread: " << e.what() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-    }
-    
-    // Sort results by K values (they may complete out of order)
-    std::vector<std::pair<int, float>> results;
-    for (size_t i = 0; i < KValues.size(); i++) {
-        results.push_back(std::make_pair(KValues[i], tauxValues[i]));
-    }
-    
-    std::sort(results.begin(), results.end(), 
-        [](const std::pair<int, float>& a, const std::pair<int, float>& b) {
-            return a.first < b.first;
-        }
-    );
-    
-    // Clear and rebuild the sorted vectors
-    KValues.clear();
-    tauxValues.clear();
-    for (const auto& result : results) {
-        KValues.push_back(result.first);
-        tauxValues.push_back(result.second);
-    }
-    
-    // Generate the plot
-    std::cout << std::endl << "Affichage des taux de compression en fonction de K..." << std::endl;
-    
     FILE *pipe = popen("gnuplot -persist", "w");
     if (pipe) {
         // Save to both screen and file
@@ -625,7 +353,7 @@ void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> imagePaths) {
     } else {
         std::cerr << "Could not open gnuplot" << std::endl;
     }
-    
+
     std::cout << "Fin de l'affichage des taux de compression en fonction de K" << std::endl;
 
 }
