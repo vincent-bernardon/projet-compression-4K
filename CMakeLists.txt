@@ -42,6 +42,7 @@ add_executable(projet
     src/ImageUtils.cpp  # Contains stringduplicate function
     src/SLIC.cpp   # Contains SLIC function
     src/Superpixel.cpp # Contains PSNR function
+    src/SDGT.cpp 
     # Add any other source files here
 )
 

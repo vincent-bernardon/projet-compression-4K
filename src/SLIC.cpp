@@ -58,6 +58,7 @@ void SLIC_RECURSIVE(const cv::Mat & I1, std::vector<Superpixel> & superpixels, s
         float delta = cv::norm(cv::Vec3f(superpixels[sp_idx].rgb) - newSuperpixelValues[sp_idx].first);
         deltaMax = std::max(deltaMax, delta);
         superpixels[sp_idx].rgb = newSuperpixelValues[sp_idx].first;
+        superpixels[sp_idx].nbPixels = newSuperpixelValues[sp_idx].second;
     } 
 
     // si la différence entre les anciennes et nouvelles couleurs des superpixels est inférieure à un seuil, on arrête 
