@@ -189,7 +189,7 @@ void traceCourbesPSNRSuperpixelsAVG(std::vector<std::string> &imagePaths){
             
             std::string cheminImageSLIC = "../src/image/courbe/SLIC_K" + std::to_string(K) + "_" + fileName;
 
-            cheminImageSLIC.find(".png");
+            cheminImageSLIC.find(".jpg");
             
             cv::Mat modifiedImage = cv::imread(cheminImageSLIC);
 
@@ -291,7 +291,7 @@ void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> &imagePaths){
                 
             std::string cheminImageSLIC = "../src/image/courbe/SLIC_K" + std::to_string(K) + "_" + fileName;
 
-            cheminImageSLIC.find(".png");
+            cheminImageSLIC.find(".jpg");
 
             std::cout << cheminImageSLIC << " : " << imagePath << std::endl;
 
@@ -326,7 +326,7 @@ void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> &imagePaths){
         // Improved title and labels
         fprintf(pipe, "set title 'Taux de compression en fonction de K' font 'Arial,14'\n");
         fprintf(pipe, "set xlabel 'Nombre de superpixels (K)' font 'Arial,12'\n");
-        fprintf(pipe, "set ylabel 'Taux moyen de compression (%%)' font 'Arial,12'\n");
+        fprintf(pipe, "set ylabel 'Taux moyen de compression' font 'Arial,12'\n");
         
         // Add grid and improve styling
         fprintf(pipe, "set grid\n");
@@ -335,6 +335,8 @@ void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> &imagePaths){
         
         // Set x-axis range to extend beyond the maximum K value
         fprintf(pipe, "set xrange [100000:420000]\n");
+        fprintf(pipe, "set yrange [0.8:1.25]\n");
+
         
         // Plot with improved styling
         fprintf(pipe, "plot '-' with linespoints ls 1 title 'Valeurs du taux de compression'\n");
@@ -356,4 +358,78 @@ void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> &imagePaths){
 
     std::cout << "Fin de l'affichage des taux de compression en fonction de K" << std::endl;
 
+}
+
+
+//pour chaque image dans le dossier image on va générer une image SLIC pour chaque valeur de K de 120000 à 400000 par pas de 10000
+//il faut enregistrer les images générées dans le dossier image/courbe
+//le nom de l'image générée doit être de la forme SLIC_Knombre_nom. 
+//cela génère les images a utiliser pour les courbes de PSNR et de taux de compression
+void genererImageSLIC(std::vector<std::string> &imagePaths){
+    std::cout << "Génération des images SLIC pour différentes valeurs de K..." << std::endl;
+    
+    // Calculate number of hardware threads, leave one for system
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) num_threads = 4; // Fallback if detection fails
+    num_threads = std::max(1u, num_threads - 1);
+    
+    std::cout << "Using " << num_threads << " threads for processing" << std::endl;
+    
+    // Calculate total operations for progress reporting
+    int totalSteps = ((400000 - KMIN) / 10000 + 1) * imagePaths.size();
+    std::atomic<int> currentStep(0);
+    std::mutex progress_mutex;
+    
+    // This will hold our futures
+    std::vector<std::future<void>> futures;
+    
+    // Process by image first, then K value (better memory locality)
+    for (const std::string& imagePath : imagePaths) {
+        // Create a task for each image
+        auto future = std::async(std::launch::async, [&imagePath, &currentStep, totalSteps, &progress_mutex]() {
+            // Read image once per thread to avoid reopening
+            cv::Mat originalImage = cv::imread(imagePath);
+            if (originalImage.empty()) {
+                std::cerr << "ERROR: Could not open or find the image: " << imagePath << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            
+            std::string fileName = imagePath.substr(imagePath.find_last_of("/\\") + 1);
+            
+            for(int K = KMIN; K <= 400000; K += 10000) {
+                std::string cheminImageSLIC = "../src/image/courbe/SLIC_K" + std::to_string(K) + "_" + fileName;
+                char *cheminImage = stringduplicate(cheminImageSLIC.c_str());
+                
+                // Process image with SLIC
+                SLIC(stringduplicate(imagePath.c_str()), cheminImage, K, 10);
+                
+                // Update progress
+                int step = ++currentStep;
+                int progress = (step * 100) / totalSteps;
+                
+                // Print progress (thread-safe)
+                {
+                    std::lock_guard<std::mutex> lock(progress_mutex);
+                    std::cout << "\rProgress: " << progress << "% - Processing image: " << fileName << " with K=" << K << "      ";
+                    std::cout.flush();
+                }
+            }
+        });
+        
+        futures.push_back(std::move(future));
+        
+        // If we've reached our thread limit, wait for one to complete
+        if (futures.size() >= num_threads) {
+            // Wait for the first future to complete
+            futures.front().wait();
+            futures.erase(futures.begin());
+        }
+    }
+    
+    // Wait for remaining futures
+    for (auto& future : futures) {
+        future.wait();
+    }
+    
+    std::cout << std::endl << "Fin de la génération des images SLIC" << std::endl;
 }

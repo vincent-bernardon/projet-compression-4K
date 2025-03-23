@@ -118,11 +118,15 @@ void SLIC(char* imagePath , char* imgOutName, int K = 100, int m = 10) {
     }
     // std::cout << "Image de sortie créée" << std::endl;
     if(strlen(imgOutName) == 0){
+        // std::cout << "Nom de l'image de sortie non spécifié" << std::endl;
         char suffix[50];
         sprintf(suffix, "_K%d_m%d", K, m);
         transformeNomImage(imagePath, nullptr, "SLIC_", suffix, imgOutName);
     }
     // std::cout << "Image de sortie enregistrée" << std::endl;
+
+    // std::cout << "Image de entré : " << imagePath << std::endl;
+    // std::cout << "Image de sortie enregistrée : " << imgOutName << std::endl;
 
     cv::imwrite(imgOutName, I2);
 
