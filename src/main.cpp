@@ -35,8 +35,8 @@ int main() {
     // traceCourbesPSNRSuperpixels(imagePath);
     // traceCourbesPSNRCompacite(imagePath);
 
-    std::vector<std::string> imagePaths;
-    getAllImagesInFolder("../src/image", imagePaths);
+    //std::vector<std::string> imagePaths;
+    //getAllImagesInFolder("../src/image", imagePaths);
 
     //afficher les paths des images 
     // for (std::string imagePath : imagePaths) {
@@ -49,7 +49,7 @@ int main() {
     //tracer la courbe des PSNR en fonction de K moyen
     // traceCourbesPSNRSuperpixelsAVG(imagePaths);
 
- */
+ 
 
     //char imagePath[250] = "../src/image/test/OIP.png";
     char imagePath[250] = "../src/image/sunrise-sunflowers.png";
