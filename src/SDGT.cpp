@@ -3,43 +3,6 @@
 #include "SDGT.hpp"
 #include "Superpixel.hpp"
 
-/* 
-void testRGBtoLABtoRGB() {
-    Superpixel testPixel;
-    
-    // Choose a test RGB value
-    testPixel.rgb = cv::Vec3b(128, 64, 192);
-    cv::Vec3b originalRGB = testPixel.rgb;
-    
-    std::cout << "=== Testing RGB->LAB->RGB Conversion ===" << std::endl;
-    std::cout << "Original RGB: [" 
-              << static_cast<int>(originalRGB[0]) << ", " 
-              << static_cast<int>(originalRGB[1]) << ", " 
-              << static_cast<int>(originalRGB[2]) << "]" << std::endl;
-    
-    // Convert to LAB
-    testPixel.setLAB();
-    std::cout << "LAB values: [" 
-              << std::fixed << std::setprecision(2) << testPixel.lab[0] << ", " 
-              << std::fixed << std::setprecision(2) << testPixel.lab[1] << ", " 
-              << std::fixed << std::setprecision(2) << testPixel.lab[2] << "]" << std::endl;
-    
-    // Convert back to RGB
-    testPixel.setRGBfromLAB();
-    std::cout << "Converted RGB: [" 
-              << static_cast<int>(testPixel.rgb[0]) << ", " 
-              << static_cast<int>(testPixel.rgb[1]) << ", " 
-              << static_cast<int>(testPixel.rgb[2]) << "]" << std::endl;
-    
-    // Calculate difference
-    int diffR = std::abs(static_cast<int>(originalRGB[0]) - static_cast<int>(testPixel.rgb[0]));
-    int diffG = std::abs(static_cast<int>(originalRGB[1]) - static_cast<int>(testPixel.rgb[1]));
-    int diffB = std::abs(static_cast<int>(originalRGB[2]) - static_cast<int>(testPixel.rgb[2]));
-    
-    std::cout << "Difference: [" << diffR << ", " << diffG << ", " << diffB << "]" << std::endl;
-    std::cout << "=======================================" << std::endl;
-}
- */
 
 cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
     if(K < mp){
@@ -98,13 +61,13 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
     pixels.clear();
 
     // Color each pixel with its superpixel's color
-    for (int y = 0; y < nH; y++) {
-        for (int x = 0; x < nW; x++) {
+    for (int x = 0; x < nH; x++) {
+        for (int y = 0; y < nW; y++) {
             int pixelIndex = y * nW + x;
             int spID = pixelToSuperpixel[pixelIndex];
                 
             if (spID >= 0 && spID < superpixels.size()) {
-                slicResult.at<cv::Vec3b>(y, x) = superpixels[spID].rgb;
+                slicResult.at<cv::Vec3b>(x, y) = superpixels[spID].rgb;
             }
         }
     }
@@ -151,15 +114,181 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
         }
     }
 
-    cv::Mat result = I1.clone();
+    std::cout << "\n=== Graph Reconverti en RGB ===\n";
+    std::cout << "Le nombre le plus élevé d'élément dans un superpixel : " << maxPixelCount << " , pour le pixel id : " << maxPixelSuperpixelID << std::endl;
 
+    cv::Mat result = I1.clone(); // Déclarer avant la boucle des superpixels
+
+    unsigned int nbSP = 0;
+    //unsigned int nbpixels= 0;
+    // pour chaque superpixels 
+    for (size_t i = 0; i < graph.nodes.size(); i++) {
+        const GraphNode& node = graph.nodes[i];
+        if (node.ignore) continue;
+        
+        nbSP ++;
+        
+        // on récupère les pixels du superpixel
+        std::vector<std::pair<int, int>> pixelCoords;  // (x, y)
+        for (int x = 0; x < nH; x++) {
+            for (int y = 0; y < nW; y++) {
+                int pixelIndex = x * nW + y;
+                if (pixelToSuperpixel[pixelIndex] == i) {
+                    pixelCoords.push_back(std::make_pair(x, y));
+                }
+            }
+        }
+        //
+        //nbpixels += pixelCoords.size();
+        //std::cout << "Nb de pixels récupéré :" << pixelCoords.size() << std::endl;
+
+  
+        int numPixels = pixelCoords.size();
+        if (numPixels <= 1) {
+            // si le superpixel n'a qu'un seul pixel, on le garde tel quel
+            if (numPixels == 1) {
+                int y = pixelCoords[0].first;
+                int x = pixelCoords[0].second;
+                result.at<cv::Vec3b>(y, x) = I1.at<cv::Vec3b>(y, x);
+                std::cout << "Superpixel " << i << " a un seul pixel - conservé tel quel" << std::endl;
+            }
+            continue;
+        }
+        
+        // ----------------- ok, testé --------------------------
+
+/*         std::cout << "Création du graphe interne pour le superpixel " << i 
+                << " avec " << numPixels << " pixels" << std::endl; */
+        
+        //  map pixel coord vers index dans la matrice
+        std::map<std::pair<int, int>, int> coordToIndex;
+        for (int p = 0; p < numPixels; p++) {
+            coordToIndex[pixelCoords[p]] = p;
+            //std::cout << "pixelCoords[p], : " << pixelCoords[p].first << ", "  <<pixelCoords[p].second << " pointe vers : " << p << std::endl;
+        }
+        
+        // ----------------- ok, testé --------------------------
+
+        // matrice d'adjacence ou [pixel i][ pixel j] = 1 s'ils sont voisins
+        cv::Mat adjacencyMatrix = cv::Mat::zeros(numPixels, numPixels, CV_32F);
+        
+        // on remplis la matrice d'adjacence
+        for (int p = 0; p < numPixels; p++) {
+            //recup les coordonnées du pixel
+            int x = pixelCoords[p].first;
+            int y = pixelCoords[p].second;
+            
+            // voisins possibles
+            std::vector<std::pair<int, int>> neighbors = {
+                {x-1, y}, {x+1, y}, {x, y-1}, {x, y+1}
+            };
+            
+            // pour chaque voisins possibles
+            for (const auto& neighbor : neighbors) {
+                // on cherche le voisin dans la map
+                auto it = coordToIndex.find(neighbor);
+                // si on l'a trouvé, 
+                if (it != coordToIndex.end()) {
+                    int neighborIdx = it->second;
+                    //std::cout << p << " est voisin avec , " << neighborIdx << std::endl;
+                    //std::cout << "coordToIndex[neighbor] : " << neighbor.first << ", "  << neighbor.second << " pointe vers : " << neighborIdx << std::endl;
+                    //std::cout << "coordToIndex[p] : " << pixelCoords[p].first << ", "  << pixelCoords[p].second << " pointe vers : " << p << std::endl;
+                    adjacencyMatrix.at<float>(p, neighborIdx) = 1.0f;
+                }
+            } 
+        }
+
+        // ----------------- ok, testé --------------------------
+        
+        // creation de la matrice de degré D
+        cv::Mat degreeMatrix = cv::Mat::zeros(numPixels, numPixels, CV_32F);
+        for (int i = 0; i < numPixels; i++) {
+            //  pour le pixel i, on calcule le degré
+            // on compte combien de voisins a le pixel i
+            float degree = 0;
+            for (int j = 0; j < numPixels; j++) {
+                degree += adjacencyMatrix.at<float>(i, j);
+            }
+            degreeMatrix.at<float>(i, i) = degree;
+        }
+
+        // ----------------- ok, testé --------------------------
+        
+        // laplacien: L = D - A
+        cv::Mat laplacian = degreeMatrix - adjacencyMatrix;
+
+        // ----------------- ok, testé --------------------------
+        
+
+        // on recupère les valeurs propres et vecteurs propres
+        cv::Mat eigenvalues, eigenvectors;
+        cv::eigen(laplacian, eigenvalues, eigenvectors);
+        
+        // ----------------- pas testé mais devrait marché parce que truc opencv --------------------------
+
+        // récupére les valeurs rgb des pixels 
+        std::vector<cv::Vec3f> pixelValues(numPixels);
+        for (int p = 0; p < numPixels; p++) {
+            int x = pixelCoords[p].first;
+            int y = pixelCoords[p].second;
+            cv::Vec3b rgb = I1.at<cv::Vec3b>(x, y);
+            pixelValues[p] = cv::Vec3f(rgb[0], rgb[1], rgb[2]);
+            //std::cout << "pixelCoords[p] : " << pixelCoords[p].first << ", "  << pixelCoords[p].second << std::endl;
+            //std::cout << "pixelValues[p] : " << pixelValues[p][0] << ", "  << pixelValues[p][1] << ", "  << pixelValues[p][2] << std::endl;
+        }
+
+        // ----------------- ok, testé --------------------------
+
+        // 7. Projeter les données sur les vecteurs propres (transformation)
+        cv::Mat signalR = cv::Mat::zeros(numPixels, 1, CV_32F);
+        cv::Mat signalG = cv::Mat::zeros(numPixels, 1, CV_32F);
+        cv::Mat signalB = cv::Mat::zeros(numPixels, 1, CV_32F);
+
+        for (int p = 0; p < numPixels; p++) {
+/*             std::cout << "pixelCoords[p] : " << pixelCoords[p].first << ", "  << pixelCoords[p].second << std::endl;
+            std::cout << "pixelValues[p] : " << pixelValues[p][0] << ", "  << pixelValues[p][1] << ", "  << pixelValues[p][2] << std::endl; */
+            signalR.at<float>(p, 0) = pixelValues[p][0];
+            signalG.at<float>(p, 0) = pixelValues[p][1];
+            signalB.at<float>(p, 0) = pixelValues[p][2];
+/*             std::cout << "signalR[p] : " << signalR.at<float>(p, 0) << std::endl;
+            std::cout << "signalG[p] : " << signalG.at<float>(p, 0) << std::endl;
+            std::cout << "signalB[p] : " << signalB.at<float>(p, 0) << std::endl; */
+        }
+
+
+        // transformé de fourier ^f = Uf avec f le signal
+        cv::Mat spectrumR = eigenvectors * signalR;
+        cv::Mat spectrumG = eigenvectors * signalG;
+        cv::Mat spectrumB = eigenvectors * signalB;
+
+        
+        //std::cout << "Graphe du superpixel " << i << " traité avec succès" << std::endl;
+    }
+
+    //std::cout << "Nb de pixels récupéré : "<< nbpixels << std::endl;
+
+    // Ajouter après la boucle des superpixels:
+
+    exit(1);
+
+    // Vérifier s'il y a des pixels non traités
+    int nonProcessedPixels = 0;
     for (int y = 0; y < nH; y++) {
         for (int x = 0; x < nW; x++) {
             int pixelIndex = y * nW + x;
             int spID = pixelToSuperpixel[pixelIndex];
-            result.at<cv::Vec3b>(y, x) = graph.nodes[spID].superpixel->rgb;
+            
+            if (spID < 0 || graph.nodes[spID].ignore) {
+                // Ce pixel n'a pas été traité, utiliser la couleur originale
+                result.at<cv::Vec3b>(y, x) = I1.at<cv::Vec3b>(y, x);
+                nonProcessedPixels++;
+            }
         }
     }
+    std::cout << "Nombre de pixels non traités: " << nonProcessedPixels << std::endl;
+
+    std::cout << "nb total de superpixels :" << nbSP << std::endl;
+
     
     std::cout << "PSNR entre l'image de base et SDGT : " << PSNR(I1, result) <<std::endl;
 
