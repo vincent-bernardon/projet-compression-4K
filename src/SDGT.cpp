@@ -255,7 +255,6 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
             std::cout << "signalB[p] : " << signalB.at<float>(p, 0) << std::endl; */
         }
 
-
         // transformé de fourier ^f = Uf avec f le signal
         cv::Mat spectrumR = eigenvectors * signalR;
         cv::Mat spectrumG = eigenvectors * signalG;
