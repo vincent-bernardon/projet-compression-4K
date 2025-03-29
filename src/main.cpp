@@ -55,6 +55,7 @@ int main() {
     cv::Mat imageModified = SDGT(imagePath, 10000, 10, 9000);
     std::cout << " temps pris pour créer le graph : " << timer.elapsed() << std::endl;
 
+    
     // TEST DISTANCE LAB
 /* 
     struct TestPair {
