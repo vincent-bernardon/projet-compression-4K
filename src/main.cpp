@@ -15,8 +15,8 @@ int main() {
     // char imageOutThreaded[250] = {0};
  
     //test SLIC
-    std::cout<<">----------SLIC----------<"<<std::endl;
-    Timer timer;
+    //std::cout<<">----------SLIC----------<"<<std::endl;
+    //Timer timer;
     //K c'est le nombre de superpixels
     //M c'est le compacité, autrement dis le poids de la distance spatiale par rapport à la distance de couleur
     // SLIC(stringduplicate(imagePath), imageOut, KMIN, 10); // 29.7 de PSNR avec ces paramètres sur l'image test4k.png
@@ -52,11 +52,11 @@ int main() {
  
 
     //char imagePath[250] = "../src/image/test/OIP.png";
-    char imagePath[250] = "../src/image/sunrise-sunflowers.png";
+    char imagePath[250] = "../src/image/sunrise-sunflowers.jpg";
 
     Timer timer;
     timer.reset();
-    cv::Mat imageModified = SDGT(imagePath, 120000, 10, 75000);
+    cv::Mat imageModified = SDGT(imagePath, 120000, 10, 110000);
     std::cout << " temps pris pour créer le graph : " << timer.elapsed() << std::endl;
 
     // TEST DISTANCE LAB

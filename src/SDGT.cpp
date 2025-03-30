@@ -63,9 +63,9 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
     // Color each pixel with its superpixel's color
     for (int x = 0; x < nH; x++) {
         for (int y = 0; y < nW; y++) {
-            int pixelIndex = y * nW + x;
+            int pixelIndex = x * nW + y;
             int spID = pixelToSuperpixel[pixelIndex];
-                
+
             if (spID >= 0 && spID < superpixels.size()) {
                 slicResult.at<cv::Vec3b>(x, y) = superpixels[spID].rgb;
             }
@@ -255,20 +255,46 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
             std::cout << "signalB[p] : " << signalB.at<float>(p, 0) << std::endl; */
         }
 
-        // transformé de fourier ^f = Uf avec f le signal
+        // Transformation : ^f = U * f
         cv::Mat spectrumR = eigenvectors * signalR;
         cv::Mat spectrumG = eigenvectors * signalG;
         cv::Mat spectrumB = eigenvectors * signalB;
 
-        
-        //std::cout << "Graphe du superpixel " << i << " traité avec succès" << std::endl;
+        // Conversion des spectres en int (CV_32S) pour simuler l'envoi de données
+        cv::Mat spectrumR_int, spectrumG_int, spectrumB_int;
+        spectrumR.convertTo(spectrumR_int, CV_32S);
+        spectrumG.convertTo(spectrumG_int, CV_32S);
+        spectrumB.convertTo(spectrumB_int, CV_32S);
+
+        // Simuler la réception et reconvertir les spectres en CV_32F
+        cv::Mat spectrumR_float, spectrumG_float, spectrumB_float;
+        spectrumR_int.convertTo(spectrumR_float, CV_32F);
+        spectrumG_int.convertTo(spectrumG_float, CV_32F);
+        spectrumB_int.convertTo(spectrumB_float, CV_32F);
+
+        // Calcul du signal reconstruit (transformation inverse)
+        cv::Mat reconstructedSignalR = eigenvectors.t() * spectrumR_float;
+        cv::Mat reconstructedSignalG = eigenvectors.t() * spectrumG_float;
+        cv::Mat reconstructedSignalB = eigenvectors.t() * spectrumB_float;
+
+        for (int p = 0; p < numPixels; p++) {
+            int y = pixelCoords[p].first;
+            int x = pixelCoords[p].second;
+            int r = std::min(255, std::max(0, static_cast<int>(reconstructedSignalR.at<float>(p,0) + 0.5f)));
+            int g = std::min(255, std::max(0, static_cast<int>(reconstructedSignalG.at<float>(p,0) + 0.5f)));
+            int b = std::min(255, std::max(0, static_cast<int>(reconstructedSignalB.at<float>(p,0) + 0.5f)));
+            
+            result.at<cv::Vec3b>(y,x) = cv::Vec3b(r, g, b);
+        }
+
+
+        std::cout << "Graphe du superpixel " << i << " traité avec succès" << std::endl;
     }
 
     //std::cout << "Nb de pixels récupéré : "<< nbpixels << std::endl;
 
     // Ajouter après la boucle des superpixels:
 
-    exit(1);
 
     // Vérifier s'il y a des pixels non traités
     int nonProcessedPixels = 0;
@@ -296,7 +322,7 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
     if (lastDot != std::string::npos) {
         outputPath = outputPath.substr(0, lastDot) + "_superpixels" + outputPath.substr(lastDot);
     } else {
-        outputPath += "_superpixels.png";
+        outputPath += "_SDGT.png";
     }
     cv::imwrite(outputPath, result);
     std::cout << "Superpixel visualization saved to: " << outputPath << std::endl;
