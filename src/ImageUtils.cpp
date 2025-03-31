@@ -300,7 +300,7 @@ void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> &imagePaths){
 
             std::cout << "Taille fichier initial: " << tailleFichierInitials << " Taille fichier compressé: " << tailleFichierCompres << std::endl;
 
-            tauxSum += (tailleFichierInitials) / tailleFichierCompres;
+            tauxSum += ((float)tailleFichierInitials) / (float)tailleFichierCompres;
             
 
             // Update progress
@@ -334,8 +334,20 @@ void traceCourbesTauxSuperpixelsAVG(std::vector<std::string> &imagePaths){
         fprintf(pipe, "set style line 1 lc rgb '#0060ad' lt 1 lw 2 pt 7 ps 1.5\n");
         
         // Set x-axis range to extend beyond the maximum K value
-        fprintf(pipe, "set xrange [100000:420000]\n");
-        fprintf(pipe, "set yrange [0.8:1.25]\n");
+        // fprintf(pipe, "set xrange [100000:420000]\n");
+        // fprintf(pipe, "set yrange [0.8:1.25]\n");
+
+        // Dynamically adjust x and y axis ranges to add 5% padding
+        float xMin = KValues.front();
+        float xMax = KValues.back();
+        float yMin = *std::min_element(tauxValues.begin(), tauxValues.end());
+        float yMax = *std::max_element(tauxValues.begin(), tauxValues.end());
+
+        float xPadding = (xMax - xMin) * 0.10;
+        float yPadding = (yMax - yMin) * 0.10;
+
+        fprintf(pipe, "set xrange [%f:%f]\n", xMin - xPadding, xMax + xPadding);
+        fprintf(pipe, "set yrange [%f:%f]\n", yMin - yPadding, yMax + yPadding);
 
         
         // Plot with improved styling
@@ -432,4 +444,97 @@ void genererImageSLIC(std::vector<std::string> &imagePaths){
     }
     
     std::cout << std::endl << "Fin de la génération des images SLIC" << std::endl;
+}
+
+void traceCourbesTauxSuperpixelsAVGCustom(std::vector<std::string> &imagePaths, const std::string& curveColor, const std::string& customTitle) {
+    std::vector<float> tauxValues;
+    std::vector<int> KValues;
+
+    std::cout << "Calcul des taux de compression pour différentes valeurs de K..." << std::endl;
+    int totalSteps = ((400000 - KMIN) / 10000 + 1) * imagePaths.size();
+    int currentStep = 0;
+
+    for (int K = KMIN; K <= 400000; K += 10000) {
+        float tauxSum = 0;
+        for (const std::string& imagePath : imagePaths) {
+            std::string fileName = imagePath.substr(imagePath.find_last_of("/\\") + 1);
+            std::string cheminImageSLIC = "../src/image/courbe/SLIC_K" + std::to_string(K) + "_" + fileName;
+
+            uintmax_t tailleFichierCompres = getFileSize(cheminImageSLIC);
+            uintmax_t tailleFichierInitials = getFileSize(imagePath);
+
+            std::cout << "Taille fichier initial: " << tailleFichierInitials << " Taille fichier compressé: " << tailleFichierCompres << std::endl;
+
+            tauxSum += ((float)tailleFichierInitials) / (float)tailleFichierCompres;
+            // std::cout << "Taux de compression: " << tauxSum / imagePaths.size() << std::endl;
+
+            // Update progress
+            currentStep++;
+            int progress = (currentStep * 100) / totalSteps;
+            // std::cout << "\rProgress: " << progress << "%";
+            // std::cout.flush();
+        }
+        tauxValues.push_back(tauxSum / (float)imagePaths.size());
+        // std::cout<< "tauxSum / imagePaths.size() = " << tauxSum / (float)imagePaths.size() << std::endl;
+        // std::cout << "K = " << K << ", Taux = " << tauxValues.back() << std::endl;
+        KValues.push_back(K);
+    }
+
+    //affiche toute les valeurs de taux de compression
+    // std::cout << std::endl;
+    // std::cout << "Valeurs de taux de compression:" << std::endl;
+    // for (size_t i = 0; i < tauxValues.size(); i++) {
+    //     std::cout << "K = " << KValues[i] << ", Taux = " << tauxValues[i] << std::endl;
+    // }
+    // std::cout << "Fin de l'affichage des valeurs de taux de compression" << std::endl;
+
+    std::cout << std::endl << "Affichage des taux de compression en fonction de K..." << std::endl;
+
+    // Affichage le graphe des taux de compression en fonction de K en utilisant gnuplot
+    FILE *pipe = popen("gnuplot -persist", "w");
+    if (pipe) {
+        // Save to both screen and file
+        fprintf(pipe, "set terminal pngcairo size 1280,720 enhanced font 'Arial,12'\n");
+        fprintf(pipe, "set output 'taux_compression_K_%s.png'\n", customTitle.c_str());
+
+        // Improved title and labels
+        fprintf(pipe, "set title 'Taux de compression en fonction de K - %s' font 'Arial,14'\n", customTitle.c_str());
+        fprintf(pipe, "set xlabel 'Nombre de superpixels (K)' font 'Arial,12'\n");
+        fprintf(pipe, "set ylabel 'Taux moyen de compression' font 'Arial,12'\n");
+
+        // Add grid and improve styling
+        fprintf(pipe, "set grid\n");
+        fprintf(pipe, "set key top right\n");
+        fprintf(pipe, "set style line 1 lc rgb '%s' lt 1 lw 2 pt 7 ps 1.5\n", curveColor.c_str());
+        // Dynamically adjust x and y axis ranges to add 5% padding
+        float xMin = KValues.front();
+        float xMax = KValues.back();
+        float yMin = *std::min_element(tauxValues.begin(), tauxValues.end());
+        float yMax = *std::max_element(tauxValues.begin(), tauxValues.end());
+
+        float xPadding = (xMax - xMin) * 0.10;
+        float yPadding = (yMax - yMin) * 0.10;
+
+        fprintf(pipe, "set xrange [%f:%f]\n", xMin - xPadding, xMax + xPadding);
+        fprintf(pipe, "set yrange [%f:%f]\n", yMin - yPadding, yMax + yPadding);
+
+        // Plot with improved styling
+        fprintf(pipe, "plot '-' with linespoints ls 1 title 'Valeurs du taux de compression'\n");
+        for (size_t i = 0; i < tauxValues.size(); i++) {
+            fprintf(pipe, "%d %f\n", KValues[i], tauxValues[i]);
+        }
+        fprintf(pipe, "e\n");
+
+        // Create a second plot for interactive viewing
+        fprintf(pipe, "set terminal wxt\n");
+        fprintf(pipe, "set output\n");
+        fprintf(pipe, "replot\n");
+
+        fflush(pipe);
+        pclose(pipe);
+    } else {
+        std::cerr << "Could not open gnuplot" << std::endl;
+    }
+
+    std::cout << "Fin de l'affichage des taux de compression en fonction de K" << std::endl;
 }

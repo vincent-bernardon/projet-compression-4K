@@ -35,8 +35,8 @@ int main() {
     // traceCourbesPSNRSuperpixels(imagePath);
     // traceCourbesPSNRCompacite(imagePath);
 
-    //std::vector<std::string> imagePaths;
-    //getAllImagesInFolder("../src/image", imagePaths);
+    // std::vector<std::string> imagePaths;
+    // getAllImagesInFolder("../src/image", imagePaths);
 
     //afficher les paths des images 
     // for (std::string imagePath : imagePaths) {
@@ -48,16 +48,18 @@ int main() {
 
     //tracer la courbe des PSNR en fonction de K moyen
     // traceCourbesPSNRSuperpixelsAVG(imagePaths);
+    //tracer la courbe des taux de compression en fonction de K moyen
+    // traceCourbesTauxSuperpixelsAVG(imagePaths);
 
  
 
     //char imagePath[250] = "../src/image/test/OIP.png";
-    char imagePath[250] = "../src/image/gladiator-2.jpg";
+    // char imagePath[250] = "../src/image/sunrise-sunflowers.jpg";
 
-    Timer timer;
-    timer.reset();
-    cv::Mat imageModified = SDGT(imagePath, 50000, 10, 50000, 20);
-    std::cout << " temps pris pour créer le graph : " << timer.elapsed() << std::endl;
+    // Timer timer;
+    // timer.reset();
+    // cv::Mat imageModified = SDGT(imagePath, 120000, 10, 110000);
+    // std::cout << " temps pris pour créer le graph : " << timer.elapsed() << std::endl;
 
     // TEST DISTANCE LAB
 /* 
@@ -116,6 +118,43 @@ int main() {
 
     }
   */
+
+  /*
+  zone pour créé les courbe par type d'image :
+  - image photo
+  - image film/série
+  - image dessin 
+  - image numérique 
+  */
+
+    std::vector<std::string> imagePathsPhoto;
+    std::vector<std::string> imagePathsFilm;
+    std::vector<std::string> imagePathsDessin;
+    std::vector<std::string> imagePathsNumerique;
+
+    //ajouter les image dens imagePathsPhoto
+    imagePathsPhoto.push_back("../src/image/sunrise-sunflowers.jpg");
+    imagePathsPhoto.push_back("../src/image/mount-fuji.jpg");
+
+    //ajouter les image dens imagePathsFilm
+    imagePathsFilm.push_back("../src/image/geralt.jpg");
+    imagePathsFilm.push_back("../src/image/gladiator-2.jpg");
+    imagePathsFilm.push_back("../src/image/robotnik.jpg");
+
+    //ajouter les image dens imagePathsDessin
+    imagePathsDessin.push_back("../src/image/absolute-batman.jpg");
+    imagePathsDessin.push_back("../src/image/boy.jpg");
+    imagePathsDessin.push_back("../src/image/snorlax.jpg");
+    imagePathsDessin.push_back("../src/image/wolverine.jpg");
+
+    //ajouter les image dens imagePathsNumerique
+    imagePathsNumerique.push_back("../src/image/lion-king.jpg");
+
+    //on fait les graphe de taux de compression 
+    traceCourbesTauxSuperpixelsAVGCustom(imagePathsPhoto, "orange", "photos");
+    traceCourbesTauxSuperpixelsAVGCustom(imagePathsFilm, "red", "film");
+    traceCourbesTauxSuperpixelsAVGCustom(imagePathsDessin, "black", "dessin");
+    traceCourbesTauxSuperpixelsAVGCustom(imagePathsNumerique, "purple", "images-numériques");
 
     return 0;
 }

@@ -2,6 +2,7 @@
 #include "SLIC.hpp"
 #include "SDGT.hpp"
 #include "Superpixel.hpp"
+#include <map>
 
 
 cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10, float coeff = 10.0f){
