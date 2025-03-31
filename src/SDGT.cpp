@@ -4,7 +4,7 @@
 #include "Superpixel.hpp"
 
 
-cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
+cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10, float coeff = 10.0f){
     if(K < mp){
         std::cout << "nombre de superpixels inférieur au nouveau nombre" << std::endl;
         exit(1);
@@ -239,20 +239,15 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
 
         // ----------------- ok, testé --------------------------
 
-        // 7. Projeter les données sur les vecteurs propres (transformation)
         cv::Mat signalR = cv::Mat::zeros(numPixels, 1, CV_32F);
         cv::Mat signalG = cv::Mat::zeros(numPixels, 1, CV_32F);
         cv::Mat signalB = cv::Mat::zeros(numPixels, 1, CV_32F);
 
+
         for (int p = 0; p < numPixels; p++) {
-/*             std::cout << "pixelCoords[p] : " << pixelCoords[p].first << ", "  << pixelCoords[p].second << std::endl;
-            std::cout << "pixelValues[p] : " << pixelValues[p][0] << ", "  << pixelValues[p][1] << ", "  << pixelValues[p][2] << std::endl; */
-            signalR.at<float>(p, 0) = pixelValues[p][0];
-            signalG.at<float>(p, 0) = pixelValues[p][1];
-            signalB.at<float>(p, 0) = pixelValues[p][2];
-/*             std::cout << "signalR[p] : " << signalR.at<float>(p, 0) << std::endl;
-            std::cout << "signalG[p] : " << signalG.at<float>(p, 0) << std::endl;
-            std::cout << "signalB[p] : " << signalB.at<float>(p, 0) << std::endl; */
+            signalR.at<float>(p, 0) = round(pixelValues[p][0] / coeff) * coeff;
+            signalG.at<float>(p, 0) = round(pixelValues[p][1] / coeff) * coeff;
+            signalB.at<float>(p, 0) = round(pixelValues[p][2] / coeff) * coeff;
         }
 
         // Transformation : ^f = U * f
@@ -260,7 +255,7 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
         cv::Mat spectrumG = eigenvectors * signalG;
         cv::Mat spectrumB = eigenvectors * signalB;
 
-        // Conversion des spectres en int (CV_32S) pour simuler l'envoi de données
+/*         // Conversion des spectres en int (CV_32S) pour simuler l'envoi de données
         cv::Mat spectrumR_int, spectrumG_int, spectrumB_int;
         spectrumR.convertTo(spectrumR_int, CV_32S);
         spectrumG.convertTo(spectrumG_int, CV_32S);
@@ -270,12 +265,12 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10){
         cv::Mat spectrumR_float, spectrumG_float, spectrumB_float;
         spectrumR_int.convertTo(spectrumR_float, CV_32F);
         spectrumG_int.convertTo(spectrumG_float, CV_32F);
-        spectrumB_int.convertTo(spectrumB_float, CV_32F);
+        spectrumB_int.convertTo(spectrumB_float, CV_32F); */
 
         // Calcul du signal reconstruit (transformation inverse)
-        cv::Mat reconstructedSignalR = eigenvectors.t() * spectrumR_float;
-        cv::Mat reconstructedSignalG = eigenvectors.t() * spectrumG_float;
-        cv::Mat reconstructedSignalB = eigenvectors.t() * spectrumB_float;
+        cv::Mat reconstructedSignalR = eigenvectors.t() * spectrumR;
+        cv::Mat reconstructedSignalG = eigenvectors.t() * spectrumG;
+        cv::Mat reconstructedSignalB = eigenvectors.t() * spectrumB;
 
         for (int p = 0; p < numPixels; p++) {
             int y = pixelCoords[p].first;

@@ -52,11 +52,11 @@ int main() {
  
 
     //char imagePath[250] = "../src/image/test/OIP.png";
-    char imagePath[250] = "../src/image/sunrise-sunflowers.jpg";
+    char imagePath[250] = "../src/image/gladiator-2.jpg";
 
     Timer timer;
     timer.reset();
-    cv::Mat imageModified = SDGT(imagePath, 120000, 10, 110000);
+    cv::Mat imageModified = SDGT(imagePath, 50000, 10, 50000, 20);
     std::cout << " temps pris pour créer le graph : " << timer.elapsed() << std::endl;
 
     // TEST DISTANCE LAB

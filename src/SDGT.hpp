@@ -213,6 +213,6 @@ struct Graph {
 
 
  
-cv::Mat SDGT(char* imagePath, int k, int m, int mp);
+cv::Mat SDGT(char* imagePath, int k, int m, int mp, float coeff);
 
 #endif
