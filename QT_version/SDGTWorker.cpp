@@ -2,6 +2,7 @@
 #include "SLIC.h"
 #include <omp.h>
 #include <atomic>
+#include <opencv2/opencv.hpp>
 
 SDGTWorker::SDGTWorker(QObject *parent)
     : QThread(parent), m_cancelled(false)
@@ -303,52 +304,81 @@ bool SDGTWorker::processImage()
         cv::Mat signalR(numPixels, 1, CV_32F);
         cv::Mat signalG(numPixels, 1, CV_32F);
         cv::Mat signalB(numPixels, 1, CV_32F);
+
+        //non fonctionnel
         
-        float* ptrR = signalR.ptr<float>(0);
-        float* ptrG = signalG.ptr<float>(0);
-        float* ptrB = signalB.ptr<float>(0);
+        // float* ptrR = signalR.ptr<float>(0);
+        // float* ptrG = signalG.ptr<float>(0);
+        // float* ptrB = signalB.ptr<float>(0);
 
-        for (int p = 0; p < numPixels; p++) {
-            ptrR[p] = round(pixelValues[p][0] * coeffInv) * m_coefficient;
-            ptrG[p] = round(pixelValues[p][1] * coeffInv) * m_coefficient;
-            ptrB[p] = round(pixelValues[p][2] * coeffInv) * m_coefficient;
-        }
+        // for (int p = 0; p < numPixels; p++) {
+        //     ptrR[p] = round(pixelValues[p][0] * coeffInv) * m_coefficient;
+        //     ptrG[p] = round(pixelValues[p][1] * coeffInv) * m_coefficient;
+        //     ptrB[p] = round(pixelValues[p][2] * coeffInv) * m_coefficient;
+        // }
 
-        // AJOUT: Point d'interruption supplémentaire dans les calculs complexes
-        if (eigenvectors.rows > 50 && (m_cancelled || cancelRequested)) {
-            cancelRequested = true;
-            continue;
-        }
+        // // AJOUT: Point d'interruption supplémentaire dans les calculs complexes
+        // if (eigenvectors.rows > 50 && (m_cancelled || cancelRequested)) {
+        //     cancelRequested = true;
+        //     continue;
+        // }
 
-        // Remplacez la quantification existante par celle-ci
+        // // Remplacez la quantification existante par celle-ci
 
-        // 1. Créer les signaux sans quantification
+        // // 1. Créer les signaux sans quantification
+        // for (int p = 0; p < numPixels; p++) {
+        //     signalR.at<float>(p, 0) = pixelValues[p][0];
+        //     signalG.at<float>(p, 0) = pixelValues[p][1];
+        //     signalB.at<float>(p, 0) = pixelValues[p][2];
+        // }
+
+        // // 2. Transformation dans le domaine spectral (code existant)
+        // cv::Mat spectrumR = eigenvectors * signalR;
+        // cv::Mat spectrumG = eigenvectors * signalG;
+        // cv::Mat spectrumB = eigenvectors * signalB;
+
+        // // 3. NOUVEAU: Appliquer la quantification inspirée JPEG dans le domaine spectral
+        // for (int i = 0; i < numPixels; i++) {
+        //     // Plus l'indice est élevé, plus on quantifie fortement (fréquences hautes)
+        //     float quantFactor = std::max(1.0f, m_coefficient * (1.0f + i * 0.5f / numPixels));
+            
+        //     // Quantification: division, arrondi, multiplication
+        //     spectrumR.at<float>(i, 0) = round(spectrumR.at<float>(i, 0) / quantFactor) * quantFactor;
+        //     spectrumG.at<float>(i, 0) = round(spectrumG.at<float>(i, 0) / quantFactor) * quantFactor;
+        //     spectrumB.at<float>(i, 0) = round(spectrumB.at<float>(i, 0) / quantFactor) * quantFactor;
+        // }
+
+        // // 4. Calcul du signal reconstruit (code existant)
+        // cv::Mat reconstructedSignalR = eigenvectorsT * spectrumR;
+        // cv::Mat reconstructedSignalG = eigenvectorsT * spectrumG;
+        // cv::Mat reconstructedSignalB = eigenvectorsT * spectrumB;
+
+
         for (int p = 0; p < numPixels; p++) {
             signalR.at<float>(p, 0) = pixelValues[p][0];
             signalG.at<float>(p, 0) = pixelValues[p][1];
             signalB.at<float>(p, 0) = pixelValues[p][2];
         }
 
-        // 2. Transformation dans le domaine spectral (code existant)
-        cv::Mat spectrumR = eigenvectors * signalR;
-        cv::Mat spectrumG = eigenvectors * signalG;
-        cv::Mat spectrumB = eigenvectors * signalB;
+        // DCT
+        cv::dct(signalR, signalR);
+        cv::dct(signalG, signalG);
+        cv::dct(signalB, signalB);
 
-        // 3. NOUVEAU: Appliquer la quantification inspirée JPEG dans le domaine spectral
-        for (int i = 0; i < numPixels; i++) {
-            // Plus l'indice est élevé, plus on quantifie fortement (fréquences hautes)
-            float quantFactor = std::max(1.0f, m_coefficient * (1.0f + i * 0.5f / numPixels));
-            
-            // Quantification: division, arrondi, multiplication
-            spectrumR.at<float>(i, 0) = round(spectrumR.at<float>(i, 0) / quantFactor) * quantFactor;
-            spectrumG.at<float>(i, 0) = round(spectrumG.at<float>(i, 0) / quantFactor) * quantFactor;
-            spectrumB.at<float>(i, 0) = round(spectrumB.at<float>(i, 0) / quantFactor) * quantFactor;
+        for (int p = 0; p < numPixels; p++) {
+            signalR.at<float>(p, 0) = round(signalR.at<float>(p, 0) / 4) * 4;
+            signalG.at<float>(p, 0) = round(signalG.at<float>(p, 0) / 4) * 4;
+            signalB.at<float>(p, 0) = round(signalB.at<float>(p, 0) / 4) * 4;
         }
 
-        // 4. Calcul du signal reconstruit (code existant)
-        cv::Mat reconstructedSignalR = eigenvectorsT * spectrumR;
-        cv::Mat reconstructedSignalG = eigenvectorsT * spectrumG;
-        cv::Mat reconstructedSignalB = eigenvectorsT * spectrumB;
+        // IDCT
+        cv::idct(signalR, signalR);
+        cv::idct(signalG, signalG);
+        cv::idct(signalB, signalB);
+
+        cv::Mat reconstructedSignalR = signalR;
+        cv::Mat reconstructedSignalG = signalG;
+        cv::Mat reconstructedSignalB = signalB;
 
         // OPTIMISATION : mise à jour de l'image résultat avec accès direct aux données
         for (int p = 0; p < numPixels; p++) {

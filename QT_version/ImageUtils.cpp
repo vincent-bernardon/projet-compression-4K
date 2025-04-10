@@ -8,6 +8,8 @@
 #include <mutex>
 #include <algorithm>
 #include <iostream>
+#include "SDGT.h"
+#include <QWidget>  // Add this at the top of the file
 
 std::uintmax_t getFileSize(const std::string& filename) {
     return std::filesystem::file_size(filename);
@@ -458,4 +460,49 @@ void genererImageSLIC(std::vector<std::string> &imagePaths){
     }
 
     std::cout << std::endl << "Fin de la génération des images SLIC" << std::endl;
+}
+
+void genererImageSDGT(std::vector<std::string> &imagePaths, int K, QWidget *parentWidget) {
+    std::cout << "Génération des images SDGT pour K=" << K << "..." << std::endl;
+
+    // Calculate total operations for progress reporting
+    int totalSteps = imagePaths.size(); // Just one K value per image
+    int currentStep = 0;
+
+    // Process each image sequentially
+    for (const std::string& imagePath : imagePaths) {
+        std::cout<<"\n\n"<<std::endl;
+        // Read image
+        cv::Mat originalImage = cv::imread(imagePath);
+        if (originalImage.empty()) {
+            std::cerr << "ERROR: Could not open or find the image: " << imagePath << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        std::string fileName = imagePath.substr(imagePath.find_last_of("/\\") + 1);
+        
+        std::string cheminImageSDGT = "../../src/image/courbe/SDGT_K" + std::to_string(K) + "_" + fileName;
+        char *cheminImageOut = stringduplicate(cheminImageSDGT.c_str());
+
+        std::cout << "Processing image: " << fileName << " with K=" << K << std::endl;
+        
+        // Process image with SDGT with the specific K value
+        bool success = SDGT(parentWidget, stringduplicate(imagePath.c_str()), cheminImageOut, K, 10, 0, 20);
+
+        if (success) {
+            std::cout << "SDGT appliqué avec succès!" << std::endl;
+            std::cout << "Image sauvegardée à: " << cheminImageOut << std::endl;
+        } else {
+            std::cerr << "Erreur lors de l'application de SDGT" << std::endl;
+            exit(1);
+        }
+
+        // Update and print progress
+        currentStep++;
+        int progress = (currentStep * 100) / totalSteps;
+        std::cout << "\rProgress: " << progress << "% - Completed processing: " << fileName;
+        std::cout.flush();
+    }
+
+    std::cout << std::endl << "Fin de la génération des images SDGT avec K=" << K << std::endl;
 }

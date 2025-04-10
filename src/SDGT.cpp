@@ -2,6 +2,7 @@
 #include "SLIC.hpp"
 #include "SDGT.hpp"
 #include "Superpixel.hpp"
+#include <map>
 
 
 cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10, float coeff = 10.0f){
@@ -244,11 +245,35 @@ cv::Mat SDGT(char* imagePath , int K = 100, int m = 10, int mp = 10, float coeff
         cv::Mat signalB = cv::Mat::zeros(numPixels, 1, CV_32F);
 
 
+        // for (int p = 0; p < numPixels; p++) {
+        //     signalR.at<float>(p, 0) = round(pixelValues[p][0] / coeff) * coeff;
+        //     signalG.at<float>(p, 0) = round(pixelValues[p][1] / coeff) * coeff;
+        //     signalB.at<float>(p, 0) = round(pixelValues[p][2] / coeff) * coeff;
+        // }
+
+        
         for (int p = 0; p < numPixels; p++) {
-            signalR.at<float>(p, 0) = round(pixelValues[p][0] / coeff) * coeff;
-            signalG.at<float>(p, 0) = round(pixelValues[p][1] / coeff) * coeff;
-            signalB.at<float>(p, 0) = round(pixelValues[p][2] / coeff) * coeff;
+            signalR.at<float>(p, 0) = pixelValues[p][0];
+            signalG.at<float>(p, 0) = pixelValues[p][1];
+            signalB.at<float>(p, 0) = pixelValues[p][2];
         }
+
+        // DCT
+        cv::dct(signalR, signalR);
+        cv::dct(signalG, signalG);
+        cv::dct(signalB, signalB);
+
+        //Quantification
+        for (int p = 0; p < numPixels; p++) {
+            signalR.at<float>(p, 0) = round(signalR.at<float>(p, 0) / coeff) * coeff;
+            signalG.at<float>(p, 0) = round(signalG.at<float>(p, 0) / coeff) * coeff;
+            signalB.at<float>(p, 0) = round(signalB.at<float>(p, 0) / coeff) * coeff;
+        }
+
+        //IDCT
+        cv::idct(signalR, signalR);
+        cv::idct(signalG, signalG);
+        cv::idct(signalB, signalB);
 
         // Transformation : ^f = U * f
         cv::Mat spectrumR = eigenvectors * signalR;
