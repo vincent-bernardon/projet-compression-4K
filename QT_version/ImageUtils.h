@@ -15,5 +15,7 @@ void getAllImagesInFolder(std::string folderPath, std::vector<std::string>& imag
 void genererImageSLIC(std::vector<std::string> &imagePaths);
 
 void genererImageSDGT(std::vector<std::string> &imagePaths, int K, QWidget *parentWidget);
+void compareCompressionRatesCurves(std::vector<std::string> &imagePaths);
+void comparePSNRCurves(std::vector<std::string> &imagePaths);
 
 #endif

@@ -366,9 +366,9 @@ bool SDGTWorker::processImage()
         cv::dct(signalB, signalB);
 
         for (int p = 0; p < numPixels; p++) {
-            signalR.at<float>(p, 0) = round(signalR.at<float>(p, 0) / 4) * 4;
-            signalG.at<float>(p, 0) = round(signalG.at<float>(p, 0) / 4) * 4;
-            signalB.at<float>(p, 0) = round(signalB.at<float>(p, 0) / 4) * 4;
+            signalR.at<float>(p, 0) = round(signalR.at<float>(p, 0) / m_coefficient) * m_coefficient;
+            signalG.at<float>(p, 0) = round(signalG.at<float>(p, 0) / m_coefficient) * m_coefficient;
+            signalB.at<float>(p, 0) = round(signalB.at<float>(p, 0) / m_coefficient) * m_coefficient;
         }
 
         // IDCT
