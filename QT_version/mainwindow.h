@@ -29,6 +29,8 @@ private slots:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void safeFit(QGraphicsView* view);
     void resetZooms();
+    void increaseFontSize(QWidget *widget, int increment);
+
 
 
 

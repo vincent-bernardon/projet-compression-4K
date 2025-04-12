@@ -35,7 +35,14 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    QString styleSheet = "QPushButton { font-size: 12pt; min-height: 30px; padding: 5px; } "
+                        "QLabel { font-size: 11pt; } "
+                        "QLineEdit { font-size: 11pt; height: 25px; } "
+                        "QComboBox { font-size: 11pt; min-height: 25px; }";
+    this->setStyleSheet(styleSheet);
+
     ui->setupUi(this);
+    increaseFontSize(this, 2);
     connect(ui->btnSelectImage, &QPushButton::clicked, this, &MainWindow::onSelectImageClicked);
     connect(ui->btnSelectOutput, &QPushButton::clicked, this, &MainWindow::onSelectOutputFolder);
     connect(ui->btnSLIC, &QPushButton::clicked, this, &MainWindow::onRunSLIC);
@@ -291,3 +298,18 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     return QMainWindow::eventFilter(watched, event);
 }
 
+
+void MainWindow::increaseFontSize(QWidget *widget, int increment)
+{
+    QFont font = widget->font();
+    font.setPointSize(font.pointSize() + increment);
+    widget->setFont(font);
+    
+    // Appliquer récursivement à tous les widgets enfants
+    for (QObject *child : widget->children()) {
+        QWidget *childWidget = qobject_cast<QWidget*>(child);
+        if (childWidget) {
+            increaseFontSize(childWidget, increment);
+        }
+    }
+}
