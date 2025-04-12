@@ -2,3 +2,5 @@ Documents/super-pixel/full/
 .vscode/
 build/
 src/opencv/opencv-4.11.0/build/
+QT_version/opencv-4.11.0/build/
+QT_version/build
