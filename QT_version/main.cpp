@@ -8,6 +8,10 @@
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    QFont appFont = QApplication::font();
+    appFont.setPointSize(appFont.pointSize() + 2); // Augmente de 2 points
+    QApplication::setFont(appFont);
+    qputenv("QT_SCALE_FACTOR", "1.2");
     MainWindow w;
     w.show();
     QTimer::singleShot(5, &w, &QMainWindow::showMaximized);
@@ -43,6 +47,12 @@ int main(int argc, char *argv[])
     // for (std::string imagePath : imagePaths) {
     //     std::cout << imagePath << std::endl;
     // }
+
+    // Compare for a specific K value
+
+    // compareCompressionRatesCurves(imagePaths);
+
+    // comparePSNRCurves(imagePaths);
 
 
     
