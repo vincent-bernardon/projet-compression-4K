@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iostream>
 #include "SDGT.h"
+#include "timer.h"
 
 std::uintmax_t getFileSize(const std::string& filename) {
     return std::filesystem::file_size(filename);
@@ -1002,12 +1003,12 @@ void traceCourbesPSNRCoeffSDGT(QWidget* parent, char* imagePath){
         // Improved title and labels
         fprintf(pipe, "set title 'PSNR en fonction du coefficient SDGT' font 'Arial,14'\n");
         fprintf(pipe, "set xlabel 'Coefficient SDGT' font 'Arial,12'\n");
-        fprintf(pipe, "set ylabel 'PSNR moyen (dB)' font 'Arial,12'\n");
+        fprintf(pipe, "set ylabel 'PSNR (dB)' font 'Arial,12'\n");
 
         // Add grid and improve styling
         fprintf(pipe, "set grid\n");
         fprintf(pipe, "set key top right\n");
-        fprintf(pipe, "set style line 1 lc rgb '#0060ad' lt 1 lw 2 pt 7 ps 1.5\n");
+        fprintf(pipe, "set style line 1 lc rgb '#dd181f' lt 1 lw 2 pt 7 ps 1.5\n");
 
         // Set x-axis range to extend beyond the maximum K value
         fprintf(pipe, "set xrange [0:100]\n");
@@ -1031,4 +1032,222 @@ void traceCourbesPSNRCoeffSDGT(QWidget* parent, char* imagePath){
         std::cerr << "Could not open gnuplot" << std::endl;
     }
     std::cout << "Fin de l'affichage des PSNR en fonction de Coeff" << std::endl;
+}
+
+void traceCourbesTauxSDGTreductionPercentage(QWidget* parent, char* imagePath){
+    //créé 10 image SDGT avec des reductionPercentage de 0 à 10 par pas de 1 car torp long
+    std::vector<float> tauxValues;
+    std::vector<int> reductionPercentageValues;
+    std::cout << "Calcul des taux de compression pour différentes valeurs de reductionPercentage..." << std::endl;
+    int totalSteps = 10;
+    int currentStep = 0;
+    std::string fileName = imagePath;
+    fileName = fileName.substr(fileName.find_last_of("/\\") + 1);
+    //creation des image SDGT
+    Timer timer;
+    for(int reductionPercentage = 0; reductionPercentage <= 10; reductionPercentage += 1){
+        
+
+        std::string cheminImageSDGT = "../../src/image/cache/SDGT_reductionPercentage" + std::to_string(reductionPercentage) + "_" + fileName;
+        char *cheminImageOut = stringduplicate(cheminImageSDGT.c_str());
+
+        //si l'image existe deja, on ne la recrée pas car trop long
+        if (std::filesystem::exists(cheminImageSDGT)) {
+            std::cout << "Image SDGT déjà existante, pas besoin de la recréer." << std::endl;
+
+        }else{
+            // Process image with SDGT with the specific K value
+            bool success = SDGT(parent, stringduplicate(imagePath), cheminImageOut, 400000, 10, reductionPercentage, 1);
+
+            if (success) {
+                std::cout << "SDGT appliqué avec succès!" << std::endl;
+                std::cout << "Image sauvegardée à: " << cheminImageOut << std::endl;
+            } else {
+                std::cerr << "Erreur lors de l'application de SDGT" << std::endl;
+                exit(1);
+            }
+        }
+
+
+
+        // Update and print progress
+        currentStep++;
+        int progress = (currentStep * 100) / totalSteps;
+        std::cout << "\rProgress: " << progress << "% - Completed processing: " << imagePath;
+        std::cout.flush();
+
+        //remplir les tableau de psnr et coeff
+        cv::Mat originalImage = cv::imread(imagePath);
+        if(originalImage.empty()) {
+            std::cerr << "Could not open or find the image" << std::endl;
+            return;
+        }
+        cv::Mat modifiedImageSDGT = cv::imread(cheminImageSDGT);
+        if(modifiedImageSDGT.empty()) {
+            std::cerr << "ERROR: Could not open or find the processed image: " << cheminImageSDGT << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        
+        tauxValues.push_back(((float)getFileSize(imagePath)) / ((float)getFileSize(cheminImageSDGT)));
+        reductionPercentageValues.push_back(reductionPercentage);
+        printf("\n \n");
+
+        std::cout << "Time: " << timer.elapsed() << "s" << std::endl; 
+        printf("\n \n");
+
+
+    }
+    timer.stop();
+
+    //afficher les valeur de tauxValues 
+    std::cout << std::endl << "Valeurs de taux de compression : " << std::endl;
+    for (size_t i = 0; i < tauxValues.size(); i++) {
+        std::cout << "Reduction Percentage = " << reductionPercentageValues[i] << " : " << tauxValues[i] << std::endl;
+    }
+
+    std::cout << std::endl << "Affichage des taux de compression en fonction de reductionPercentage..." << std::endl;
+    // Affichage le graphe des taux de compression en fonction de K en utilisant gnuplot
+    FILE *pipe = popen("gnuplot -persist", "w");
+    if (pipe) {
+        // Save to both screen and file
+        fprintf(pipe, "set terminal pngcairo size 1280,720 enhanced font 'Arial,12'\n");
+        fprintf(pipe, "set output 'taux_compression_reductionPercentage_SDGT.png'\n");
+
+        // Improved title and labels
+        fprintf(pipe, "set title 'Taux de compression en fonction de réduction de superpixel' font 'Arial,14'\n");
+        fprintf(pipe, "set xlabel 'Réduction de superpixel (%)' font 'Arial,12'\n");
+        fprintf(pipe, "set ylabel 'Taux de compression' font 'Arial,12'\n");
+
+        // Add grid and improve styling
+        fprintf(pipe, "set grid\n");
+        fprintf(pipe, "set key top right\n");
+        fprintf(pipe, "set style line 1 lc rgb '#dd181f' lt 1 lw 2 pt 7 ps 1.5\n");
+
+        // Set x-axis range to extend beyond the maximum K value
+        fprintf(pipe, "set xrange [0:10]\n");
+        fprintf(pipe, "set yrange [0.9:1.45]\n");
+
+        // Plot with improved styling
+        fprintf(pipe, "plot '-' with linespoints ls 1 title 'Valeurs du Taux de compression'\n");
+        for (size_t i = 0; i < tauxValues.size(); i++) {
+            fprintf(pipe, "%d %f\n", reductionPercentageValues[i], tauxValues[i]);
+        }
+        fprintf(pipe, "e\n");
+
+        // Create a second plot for interactive viewing
+        fprintf(pipe, "set terminal wxt\n");
+        fprintf(pipe, "set output\n");
+        fprintf(pipe, "replot\n");
+
+        fflush(pipe);
+        pclose(pipe);
+    } else {
+        std::cerr << "Could not open gnuplot" << std::endl;
+    }
+    std::cout << "Fin de l'affichage des taux de compression en fonction de reductionPercentage" << std::endl;
+
+}
+
+void traceCourbesPSNRSDGTreductionPercentage(QWidget* parent, char* imagePath){
+    //créé 10 image SDGT avec des reductionPercentage de 0 à 10 par pas de 1 car torp long
+    std::vector<float> psnrValues;
+    std::vector<int> reductionPercentageValues;
+    std::cout << "Calcul des PSNR pour différentes valeurs de reductionPercentage..." << std::endl;
+    int totalSteps = 10;
+    int currentStep = 0;
+    std::string fileName = imagePath;
+    fileName = fileName.substr(fileName.find_last_of("/\\") + 1);
+    //creation des image SDGT
+    Timer timer;
+    for(int reductionPercentage = 0; reductionPercentage <= 10; reductionPercentage += 1){
+        
+
+        std::string cheminImageSDGT = "../../src/image/cache/SDGT_reductionPercentage" + std::to_string(reductionPercentage) + "_" + fileName;
+        char *cheminImageOut = stringduplicate(cheminImageSDGT.c_str());
+
+        //si l'image existe deja, on ne la recrée pas car trop long
+        if (std::filesystem::exists(cheminImageSDGT)) {
+            std::cout << "Image SDGT déjà existante, pas besoin de la recréer." << std::endl;
+
+        }else{
+            // Process image with SDGT with the specific K value
+            bool success = SDGT(parent, stringduplicate(imagePath), cheminImageOut, 400000, 10, reductionPercentage, 1);
+
+            if (success) {
+                std::cout << "SDGT appliqué avec succès!" << std::endl;
+                std::cout << "Image sauvegardée à: " << cheminImageOut << std::endl;
+            } else {
+                std::cerr << "Erreur lors de l'application de SDGT" << std::endl;
+                exit(1);
+            }
+        }
+
+        // Update and print progress
+        currentStep++;
+        int progress = (currentStep * 100) / totalSteps;
+        std::cout << "\rProgress: " << progress << "% - Completed processing: " << imagePath;
+        std::cout.flush();
+        //remplir les tableau de psnr et coeff
+        cv::Mat originalImage = cv::imread(imagePath);
+        if(originalImage.empty()) {
+            std::cerr << "Could not open or find the image" << std::endl;
+            return;
+        }
+        cv::Mat modifiedImageSDGT = cv::imread(cheminImageSDGT);
+        if(modifiedImageSDGT.empty()) {
+            std::cerr << "ERROR: Could not open or find the processed image: " << cheminImageSDGT << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        psnrValues.push_back(PSNR(originalImage, modifiedImageSDGT));
+        reductionPercentageValues.push_back(reductionPercentage);
+        printf("\n \n");
+        std::cout << "Time: " << timer.elapsed() << "s" << std::endl;
+        printf("\n \n");
+    }
+    timer.stop();
+    //afficher les valeur de tauxValues
+    std::cout << std::endl << "Valeurs de PSNR : " << std::endl;
+    for (size_t i = 0; i < psnrValues.size(); i++) {
+        std::cout << "Reduction Percentage = " << reductionPercentageValues[i] << " : " << psnrValues[i] << std::endl;
+    }
+    std::cout << std::endl << "Affichage des PSNR en fonction de reductionPercentage..." << std::endl;
+    // Affichage le graphe des PSNR en fonction de K en utilisant gnuplot
+    FILE *pipe = popen("gnuplot -persist", "w");
+    if (pipe) {
+        // Save to both screen and file
+        fprintf(pipe, "set terminal pngcairo size 1280,720 enhanced font 'Arial,12'\n");
+        fprintf(pipe, "set output 'psnr_reductionPercentage_SDGT.png'\n");
+
+        // Improved title and labels
+        fprintf(pipe, "set title 'PSNR en fonction de réduction de superpixel' font 'Arial,14'\n");
+        fprintf(pipe, "set xlabel 'Réduction de superpixel (%)' font 'Arial,12'\n");
+        fprintf(pipe, "set ylabel 'PSNR (dB)' font 'Arial,12'\n");
+
+        // Add grid and improve styling
+        fprintf(pipe, "set grid\n");
+        fprintf(pipe, "set key top right\n");
+        fprintf(pipe, "set style line 1 lc rgb '#dd181f' lt 1 lw 2 pt 7 ps 1.5\n");
+
+        // Set x-axis range to extend beyond the maximum K value
+        fprintf(pipe, "set xrange [0:10]\n");
+        fprintf(pipe, "set yrange [0:50]\n");
+
+        // Plot with improved styling
+        fprintf(pipe, "plot '-' with linespoints ls 1 title 'Valeurs du PSNR'\n");
+        for (size_t i = 0; i < psnrValues.size(); i++) {
+            fprintf(pipe, "%d %f\n", reductionPercentageValues[i], psnrValues[i]);
+        }
+        fprintf(pipe, "e\n");
+
+        // Create a second plot for interactive viewing
+        fprintf(pipe, "set terminal wxt\n");
+        fprintf(pipe, "set output\n");
+        fprintf(pipe, "replot\n");
+
+        fflush(pipe);
+        pclose(pipe);
+    } else {
+        std::cerr << "Could not open gnuplot" << std::endl;
+    }
+    std::cout << "Fin de l'affichage des PSNR en fonction de reductionPercentage" << std::endl;
 }

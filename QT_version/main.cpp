@@ -83,7 +83,10 @@ int main(int argc, char *argv[])
     // traceCourbesTauxSuperpixelsAVGCustom(imagePathsDessin, "dessin");
     // traceCourbesTauxSuperpixelsAVGCustom(imagePathsNumerique, "images-numériques");
 
-    traceCourbesPSNRCoeffSDGT(&parentWidget, "../../src/image/absolute-batman.jpg");
+    // traceCourbesPSNRCoeffSDGT(&parentWidget, "../../src/image/absolute-batman.jpg");
+    // traceCourbesTauxSDGTreductionPercentage(&parentWidget, "../../src/image/absolute-batman.jpg");
+    // traceCourbesPSNRSDGTreductionPercentage(&parentWidget, "../../src/image/absolute-batman.jpg");
+
 
 
     

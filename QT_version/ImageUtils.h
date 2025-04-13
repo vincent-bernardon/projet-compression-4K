@@ -21,5 +21,8 @@ void comparePSNRCurves(std::vector<std::string> &imagePaths);
 void traceCourbesTauxSuperpixelsAVGCustom(std::vector<std::string> &imagePaths, const std::string& customTitle);
 
 void traceCourbesPSNRCoeffSDGT(QWidget* parent, char* imagePath);
+void traceCourbesTauxSDGTreductionPercentage(QWidget* parent, char* imagePath);
+void traceCourbesPSNRSDGTreductionPercentage(QWidget* parent, char* imagePath);
+
 
 #endif
