@@ -2,7 +2,7 @@
 #define IMAGEUTILS_HPP
 #include <opencv2/opencv.hpp>
 #include <cstring>
-#include <QWidget>  // Add this at the top of the file
+#include <QWidget>
 char* stringduplicate(const char* source);
 double PSNR(char* imagePath1, char* imagePath2);
 double PSNR(const cv::Mat& I1, const cv::Mat& I2);
@@ -17,5 +17,9 @@ void genererImageSLIC(std::vector<std::string> &imagePaths);
 void genererImageSDGT(std::vector<std::string> &imagePaths, int K, QWidget *parentWidget);
 void compareCompressionRatesCurves(std::vector<std::string> &imagePaths);
 void comparePSNRCurves(std::vector<std::string> &imagePaths);
+
+void traceCourbesTauxSuperpixelsAVGCustom(std::vector<std::string> &imagePaths, const std::string& customTitle);
+
+void traceCourbesPSNRCoeffSDGT(QWidget* parent, char* imagePath);
 
 #endif

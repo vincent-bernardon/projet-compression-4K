@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <iostream>
 #include "SDGT.h"
-#include <QWidget>  // Add this at the top of the file
 
 std::uintmax_t getFileSize(const std::string& filename) {
     return std::filesystem::file_size(filename);
@@ -788,3 +787,248 @@ void comparePSNRCurves(std::vector<std::string> &imagePaths) {
 }
 
 
+void traceCourbesTauxSuperpixelsAVGCustom(std::vector<std::string> &imagePaths, const std::string& customTitle) {
+    std::vector<float> tauxValuesSLIC;
+    std::vector<float> tauxValuesSDGT;
+    std::vector<int> KValues;
+
+    std::cout << "Calcul des taux de compression pour différentes valeurs de K..." << std::endl;
+    int totalSteps = ((400000 - KMIN) / 10000 + 1) * imagePaths.size() * 2; // *2 for both SLIC and SDGT
+    int currentStep = 0;
+
+    for (int K = KMIN; K <= 400000; K += 10000) {
+        float tauxSumSLIC = 0;
+        float tauxSumSDGT = 0;
+        for (const std::string& imagePath : imagePaths) {
+            std::string fileName = imagePath.substr(imagePath.find_last_of("/\\") + 1);
+            
+            // Generate paths for both SLIC and SDGT processed images
+            std::string cheminImageSLIC = "../../src/image/courbe/SLIC_K" + std::to_string(K) + "_" + fileName;
+            std::string cheminImageSDGT = "../../src/image/courbe/SDGT_K" + std::to_string(K) + "_" + fileName;
+
+            // Get file sizes
+            uintmax_t tailleFichierInitials = getFileSize(imagePath);
+            
+            // SLIC compression rate
+            if (std::filesystem::exists(cheminImageSLIC)) {
+                uintmax_t tailleFichierCompresSLIC = getFileSize(cheminImageSLIC);
+                tauxSumSLIC += ((float)tailleFichierInitials) / (float)tailleFichierCompresSLIC;
+            }
+            
+            // SDGT compression rate
+            if (std::filesystem::exists(cheminImageSDGT)) {
+                uintmax_t tailleFichierCompresSDGT = getFileSize(cheminImageSDGT);
+                tauxSumSDGT += ((float)tailleFichierInitials) / (float)tailleFichierCompresSDGT;
+            }
+
+            // Update progress
+            currentStep += 2; // Count both SLIC and SDGT
+            int progress = (currentStep * 100) / totalSteps;
+            std::cout << "\rProgress: " << progress << "%";
+            std::cout.flush();
+        }
+        
+        // Calculate averages and store values
+        tauxValuesSLIC.push_back(tauxSumSLIC / (float)imagePaths.size());
+        tauxValuesSDGT.push_back(tauxSumSDGT / (float)imagePaths.size());
+        KValues.push_back(K);
+    }
+
+    std::cout << std::endl << "Affichage des taux de compression en fonction de K..." << std::endl;
+
+    // Plotting with gnuplot
+    FILE *pipe = popen("gnuplot -persist", "w");
+    if (pipe) {
+        // Save to both screen and file
+        fprintf(pipe, "set terminal pngcairo size 1280,720 enhanced font 'Arial,12'\n");
+        fprintf(pipe, "set output 'taux_compression_K_%s_compare_SLIC_vs_SDGT.png'\n", customTitle.c_str());
+
+        // Place legend outside the plot area like in comparePSNRCurves
+        fprintf(pipe, "set key outside\n");
+        fprintf(pipe, "set key right top\n");
+        
+        // Improved title and labels
+        fprintf(pipe, "set title 'Taux de compression en fonction de K - %s' font 'Arial,14'\n", customTitle.c_str());
+        fprintf(pipe, "set xlabel 'Nombre de superpixels (K)' font 'Arial,12'\n");
+        fprintf(pipe, "set ylabel 'Taux moyen de compression' font 'Arial,12'\n");
+
+        // Add grid and improve styling
+        fprintf(pipe, "set grid\n");
+        
+        // Dynamically adjust x and y axis ranges
+        float xMin = KValues.front();
+        float xMax = KValues.back();
+        
+        // Find min/max values across both datasets
+        float minSLIC = tauxValuesSLIC.empty() ? 0 : *std::min_element(tauxValuesSLIC.begin(), tauxValuesSLIC.end());
+        float minSDGT = tauxValuesSDGT.empty() ? 0 : *std::min_element(tauxValuesSDGT.begin(), tauxValuesSDGT.end());
+        float maxSLIC = tauxValuesSLIC.empty() ? 0 : *std::max_element(tauxValuesSLIC.begin(), tauxValuesSLIC.end());
+        float maxSDGT = tauxValuesSDGT.empty() ? 0 : *std::max_element(tauxValuesSDGT.begin(), tauxValuesSDGT.end());
+        
+        // Use global min/max
+        float yMin = std::min(minSLIC, minSDGT);
+        float yMax = std::max(maxSLIC, maxSDGT);
+
+        float xPadding = (xMax - xMin) * 0.10;
+        float yPadding = (yMax - yMin) * 0.10;
+
+        fprintf(pipe, "set xrange [%f:%f]\n", xMin - xPadding, xMax + xPadding);
+        fprintf(pipe, "set yrange [%f:%f]\n", yMin - yPadding, yMax + yPadding);
+
+        // Set line styles - use specified color for SLIC and red for SDGT
+        fprintf(pipe, "set style line 1 lc rgb '#0060ad' lt 1 lw 2 pt 7 ps 1.5\n");
+        fprintf(pipe, "set style line 2 lc rgb '#dd181f' lt 1 lw 2 pt 9 ps 1.5\n");
+        // Plot with both data series
+        fprintf(pipe, "plot '-' with linespoints ls 1 title 'SLIC', '-' with linespoints ls 2 title 'SDGT'\n");
+        
+        // Write SLIC data
+        for (size_t i = 0; i < KValues.size(); i++) {
+            fprintf(pipe, "%d %f\n", KValues[i], tauxValuesSLIC[i]);
+        }
+        fprintf(pipe, "e\n");
+        
+        // Write SDGT data
+        for (size_t i = 0; i < KValues.size(); i++) {
+            fprintf(pipe, "%d %f\n", KValues[i], tauxValuesSDGT[i]);
+        }
+        fprintf(pipe, "e\n");
+
+        // Create a second plot for interactive viewing
+        fprintf(pipe, "set terminal wxt\n");
+        fprintf(pipe, "set output\n");
+        fprintf(pipe, "replot\n");
+
+        fflush(pipe);
+        pclose(pipe);
+    } else {
+        std::cerr << "Could not open gnuplot" << std::endl;
+    }
+
+    std::cout << "Fin de l'affichage des taux de compression en fonction de K" << std::endl;
+}
+
+void traceCourbesPSNRCoeffSDGT(QWidget* parent, char* imagePath){
+    //créé 10 image SDGT avec des coeff de 0 à 100 par pas de 10
+    std::vector<float> psnrValues;
+    std::vector<int> CoeffValues;
+    std::cout << "Calcul des PSNR pour différentes valeurs du Coeff..." << std::endl;
+    int totalSteps = 10;
+    int currentStep = 0;
+
+    std::string fileName = imagePath;
+    fileName = fileName.substr(fileName.find_last_of("/\\") + 1);
+
+    //creation des image SDGT 
+    for(int coeff = 0; coeff <= 100; coeff += 10){
+        if(coeff == 0) coeff = 1; // Avoid zero coefficient
+        
+
+        std::string cheminImageSDGT = "../../src/image/cache/SDGT_Coeff" + std::to_string(coeff) + "_" + fileName;
+        char *cheminImageOut = stringduplicate(cheminImageSDGT.c_str());
+
+        // Process image with SDGT with the specific K value
+        bool success = SDGT(parent, stringduplicate(imagePath), cheminImageOut, 400000, 10, 0, coeff);
+
+        if (success) {
+            std::cout << "SDGT appliqué avec succès!" << std::endl;
+            std::cout << "Image sauvegardée à: " << cheminImageOut << std::endl;
+        } else {
+            std::cerr << "Erreur lors de l'application de SDGT" << std::endl;
+            exit(1);
+        }
+
+        // Update and print progress
+        currentStep++;
+        int progress = (currentStep * 100) / totalSteps;
+        std::cout << "\rProgress: " << progress << "% - Completed processing: " << imagePath;
+        std::cout.flush();
+
+        //remplir les tableau de psnr et coeff
+        cv::Mat originalImage = cv::imread(imagePath);
+        if(originalImage.empty()) {
+            std::cerr << "Could not open or find the image" << std::endl;
+            return;
+        }
+        cv::Mat modifiedImageSDGT = cv::imread(cheminImageSDGT);
+        if(modifiedImageSDGT.empty()) {
+            std::cerr << "ERROR: Could not open or find the processed image: " << cheminImageSDGT << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        psnrValues.push_back(PSNR(originalImage, modifiedImageSDGT));
+        CoeffValues.push_back(coeff);
+
+        if(coeff == 1 || coeff == 90){
+            int coff;
+
+            if(coeff == 1) coff=4;
+            if(coeff == 90) coff=100;
+            std::string cheminImageSDGT = "../../src/image/cache/SDGT_Coeff" + std::to_string(coff) + "_" + fileName;
+            char *cheminImageOut = stringduplicate(cheminImageSDGT.c_str());
+            bool success = SDGT(parent, stringduplicate(imagePath), cheminImageOut, 400000, 10, 0, coeff);
+            if (success) {
+                std::cout << "SDGT appliqué avec succès!" << std::endl;
+                std::cout << "Image sauvegardée à: " << cheminImageOut << std::endl;
+            } else {
+                std::cerr << "Erreur lors de l'application de SDGT" << std::endl;
+                exit(1);
+            }
+            cv::Mat originalImage = cv::imread(imagePath);
+            if(originalImage.empty()) {
+                std::cerr << "Could not open or find the image" << std::endl;
+                return;
+            }
+            cv::Mat modifiedImageSDGT = cv::imread(cheminImageSDGT);
+            if(modifiedImageSDGT.empty()) {
+                std::cerr << "ERROR: Could not open or find the processed image: " << cheminImageSDGT << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            psnrValues.push_back(PSNR(originalImage, modifiedImageSDGT));
+            CoeffValues.push_back(coff);
+
+        }
+    }
+
+    
+
+    std::cout << std::endl << "Affichage des PSNR en fonction de K..." << std::endl;
+
+    // Affichage le graphe des PSNR en fonction de K en utilisant gnuplot
+    FILE *pipe = popen("gnuplot -persist", "w");
+    if (pipe) {
+        // Save to both screen and file
+        fprintf(pipe, "set terminal pngcairo size 1280,720 enhanced font 'Arial,12'\n");
+        fprintf(pipe, "set output 'psnr_coeff_SDGT.png'\n");
+
+        // Improved title and labels
+        fprintf(pipe, "set title 'PSNR en fonction du coefficient SDGT' font 'Arial,14'\n");
+        fprintf(pipe, "set xlabel 'Coefficient SDGT' font 'Arial,12'\n");
+        fprintf(pipe, "set ylabel 'PSNR moyen (dB)' font 'Arial,12'\n");
+
+        // Add grid and improve styling
+        fprintf(pipe, "set grid\n");
+        fprintf(pipe, "set key top right\n");
+        fprintf(pipe, "set style line 1 lc rgb '#0060ad' lt 1 lw 2 pt 7 ps 1.5\n");
+
+        // Set x-axis range to extend beyond the maximum K value
+        fprintf(pipe, "set xrange [0:100]\n");
+        fprintf(pipe, "set yrange [0:50]\n");
+
+        // Plot with improved styling
+        fprintf(pipe, "plot '-' with linespoints ls 1 title 'Valeurs du PSNR'\n");
+        for (size_t i = 0; i < psnrValues.size(); i++) {
+            fprintf(pipe, "%d %f\n", CoeffValues[i], psnrValues[i]);
+        }
+        fprintf(pipe, "e\n");
+
+        // Create a second plot for interactive viewing
+        fprintf(pipe, "set terminal wxt\n");
+        fprintf(pipe, "set output\n");
+        fprintf(pipe, "replot\n");
+
+        fflush(pipe);
+        pclose(pipe);
+    } else {
+        std::cerr << "Could not open gnuplot" << std::endl;
+    }
+    std::cout << "Fin de l'affichage des PSNR en fonction de Coeff" << std::endl;
+}
